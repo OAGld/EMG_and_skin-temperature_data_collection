@@ -1,5 +1,4 @@
 from menu import Menu
-import json
 import Auxiliary
 
 if __name__ == "__main__":
@@ -12,8 +11,18 @@ if __name__ == "__main__":
 
     media_folder = "gestures/"
     #What gestures to include
-    gestures = [4, 6, 12]
+    gestures = [1,2,3]
 
-    Auxiliary.download_gestures(gestures, media_folder, download_imgs=False)
+    sgt_args={
+        'media_folder': media_folder,
+        'data_folder':data_folder,
+        'num_reps': 1, 
+        'rep_time': 5, 
+        'rest_time': 3, 
+        'auto_advance': True, 
+        'discrete': False
+    }
 
-    Menu(subject, data_folder, gestures, media_folder)
+    Auxiliary.download_gestures(gestures, media_folder, download_imgs=True)
+
+    Menu(subject, data_folder, gestures, media_folder, sgt_args)

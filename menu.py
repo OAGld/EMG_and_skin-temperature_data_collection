@@ -4,14 +4,20 @@ import tkinter as tk
 from tkinter import simpledialog, messagebox
 import pandas as pd
 import matplotlib.pyplot as plt
-from libEMG_gui.gui import GUI
+#from libEMG_gui.gui import GUI
 import os
 from libemg.data_handler import OnlineDataHandler, OfflineDataHandler
 from libemg.streamers import myo_streamer, sifi_bioarmband_streamer
+from SGT.gui import GUI
+import multiprocessing
+
+def run_sgt(events_file, sgt_args):
+    training_ui = GUI(events_file=events_file, args=sgt_args, gesture_height=500, gesture_width=500)
+    training_ui.start_gui()
 
 class Menu:
 
-    def __init__(self, subject, data_folder, gestures, media_folder):
+    def __init__(self, subject, data_folder, gestures, media_folder, sgt_args):
 
         self.streamer, self.shared_memory = myo_streamer(imu=False)
         self.odh = OnlineDataHandler(self.shared_memory)
@@ -19,6 +25,7 @@ class Menu:
         self.data_folder = data_folder
         self.gestures = gestures
         self.media_folder = media_folder
+        self.sgt_args = sgt_args
 
         self.emg_file = f"{self.data_folder}emg.csv"
         self.events_file = f"{self.data_folder}events.json"
@@ -29,7 +36,21 @@ class Menu:
 
         self.create_gui()
 
+        #self.start_sgt()
 
+
+    def start_sgt(self):
+
+        process = multiprocessing.Process(
+            target=run_sgt,
+            args=(self.events_file, self.sgt_args)
+        )
+
+        process.start()
+
+        self.sgt_process = process
+
+    
     # ============================================================
     # Recording
     # ============================================================
@@ -232,6 +253,14 @@ class Menu:
             width=20,
             height=2,
             command=self.start_recording
+        ).pack(pady=8)
+
+        tk.Button(
+            control_frame,
+            text="Start screen guided collection",
+            width=20,
+            height=2,
+            command=self.start_sgt
         ).pack(pady=8)
 
         tk.Button(

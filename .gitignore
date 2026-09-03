@@ -1,0 +1,6 @@
+.venv/
+__pycache__/
+libEMG_gui/
+Sifi_armband_info.py
+sifibridge
+.git

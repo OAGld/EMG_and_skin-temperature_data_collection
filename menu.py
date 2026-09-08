@@ -4,10 +4,7 @@ import tkinter as tk
 from tkinter import simpledialog, messagebox
 import pandas as pd
 import matplotlib.pyplot as plt
-#from libEMG_gui.gui import GUI
 import os
-from libemg.data_handler import OnlineDataHandler, OfflineDataHandler
-from libemg.streamers import myo_streamer, sifi_bioarmband_streamer
 from SGT.gui import GUI
 import multiprocessing
 
@@ -17,10 +14,8 @@ def run_sgt(events_file, sgt_args):
 
 class Menu:
 
-    def __init__(self, subject, data_folder, gestures, media_folder, sgt_args):
-
-        self.streamer, self.shared_memory = myo_streamer(imu=False)
-        self.odh = OnlineDataHandler(self.shared_memory)
+    def __init__(self, subject, data_folder, gestures, media_folder, sgt_args, odh):
+        self.odh = odh
         self.subject = subject
         self.data_folder = data_folder
         self.gestures = gestures
@@ -36,8 +31,8 @@ class Menu:
 
         self.create_gui()
 
-        #self.start_sgt()
-
+    def analyze_device(self):
+        self.odh.analyze_hardware()
 
     def start_sgt(self):
 
@@ -49,7 +44,6 @@ class Menu:
         process.start()
 
         self.sgt_process = process
-
     
     # ============================================================
     # Recording
@@ -59,19 +53,22 @@ class Menu:
 
         self.recording_start = time.time()
 
+        self.create_event("Start recording")
+
         self.odh.log_to_file(
             file_path=self.data_folder,
             timestamps=True
         )
 
         self.recording_status.set("RECORDING")
-
+        self.odh.visualize_channels(channels=[0, 2, 3, 4], num_samples=2000)
 
     def stop_recording(self):
 
         self.recording_end = time.time()
 
         self.odh.stop_all()
+        self.create_event("Stop recording")
 
         self.recording_status.set("NOT RECORDING")
 
@@ -170,9 +167,7 @@ class Menu:
     # ============================================================
 
     def exit_program(self):
-
-        self.odh.stop_all()
-        self.streamer.terminate()
+        self.create_event("Exit program")
         self.window.destroy()
 
     # ============================================================
@@ -246,6 +241,14 @@ class Menu:
             sticky="nsew",
             padx=(0, 10)
         )
+
+        tk.Button(
+            control_frame,
+            text="Analyze device",
+            width=20,
+            height=2,
+            command=self.analyze_device
+        ).pack(pady=8)
 
         tk.Button(
             control_frame,

@@ -8,3 +8,4 @@ data/**
 gestures/
 gestures/**
 SGT/_data_collection_panel_odh_enabled.py
+filter_testing.py

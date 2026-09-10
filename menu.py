@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import os
 from SGT.gui import GUI
 import multiprocessing
+from Auxiliary import plot_data_ext
 
 def run_sgt(events_file, sgt_args):
     training_ui = GUI(events_file=events_file, args=sgt_args, gesture_height=500, gesture_width=500)
@@ -44,7 +45,10 @@ class Menu:
         process.start()
 
         self.sgt_process = process
-    
+
+    def start_visualize(self):
+        self.odh.visualize_channels(channels=[0, 2, 3, 4], num_samples=2000)
+
     # ============================================================
     # Recording
     # ============================================================
@@ -61,7 +65,6 @@ class Menu:
         )
 
         self.recording_status.set("RECORDING")
-        self.odh.visualize_channels(channels=[0, 2, 3, 4], num_samples=2000)
 
     def stop_recording(self):
 
@@ -103,64 +106,8 @@ class Menu:
     # ============================================================
     # Plot
     # ============================================================
-
     def plot_data(self):
-
-        emg = pd.read_csv(
-            self.emg_file,
-            sep=" ",
-            header=None
-        )
-
-        emg_time = pd.to_datetime(
-            emg.iloc[:, 0],
-            unit="s"
-        )
-
-        # Read events from JSON Lines file
-        events_from_file = []
-
-        with open(self.events_file, "r") as f:
-            for line in f:
-                line = line.strip()
-
-                if line:
-                    events_from_file.append(json.loads(line))
-
-        plt.figure()
-
-        plt.plot(
-            emg_time,
-            emg.iloc[:, 1]
-        )
-
-        for event in events_from_file:
-
-            event_time = pd.to_datetime(
-                event["timestamp"],
-                unit="s"
-            )
-
-            plt.axvline(
-                event_time,
-                linestyle="--"
-            )
-
-            plt.text(
-                event_time,
-                plt.ylim()[1],
-                event["event"],
-                rotation=90,
-                verticalalignment="top"
-            )
-
-        plt.xlabel("Time")
-        plt.ylabel("EMG")
-        plt.title("EMG with Events")
-
-        plt.gcf().autofmt_xdate()
-
-        plt.show()
+        plot_data_ext(self)
 
     # ============================================================
     # Exit
@@ -178,7 +125,7 @@ class Menu:
 
         self.window = tk.Tk()
         self.window.title("EMG Recording")
-        self.window.geometry("650x450")
+        self.window.geometry("650x650")
 
         self.recording_status = tk.StringVar(
             value="NOT RECORDING"
@@ -256,6 +203,14 @@ class Menu:
             width=20,
             height=2,
             command=self.start_recording
+        ).pack(pady=8)
+
+        tk.Button(
+            control_frame,
+            text="Visualize",
+            width=20,
+            height=2,
+            command=self.start_visualize
         ).pack(pady=8)
 
         tk.Button(

@@ -1,9 +1,14 @@
 from menu import Menu
 import Auxiliary
-from libemg.streamers import myo_streamer, sifi_bioarmband_streamer
-from libemg.data_handler import OnlineDataHandler, OfflineDataHandler
+#from libemg.streamers import myo_streamer, sifi_bioarmband_streamer
+from Streamer.streamers import sifi_bioarmband_streamer
+from libemg.data_handler import OnlineDataHandler
 from libemg.filtering import Filter
 import sifi_bridge_py as sbp
+import time
+
+#To-do
+# - Periodically check connection to armband and create an event if its not connected?
 
 if __name__ == "__main__":
 
@@ -28,9 +33,13 @@ if __name__ == "__main__":
     }
 
     try:
-        streamer, shared_memory = sifi_bioarmband_streamer(name="SifiBand_2F4C", ecg=True, emg=True, eda=True, imu=True, ppg=True, filtering=False)
-        #streamer, shared_memory = myo_streamer()
+        streamer, shared_memory = sifi_bioarmband_streamer(name="SifiBand_2F4C", ecg=True, emg=True, emg_fs=2000, eda=True, imu=True, ppg=True, temperature=True, filtering=False, streaming=False)
+
         odh = OnlineDataHandler(shared_memory)
+
+        time.sleep(3)
+
+        data, counts = odh.get_data()
 
         Auxiliary.download_gestures(gestures, media_folder, download_imgs=True)
 
@@ -38,6 +47,7 @@ if __name__ == "__main__":
 
         odh.stop_all()
         streamer.terminate()
+
     except Exception as e:
         print(f"An unexpected error occurred: {e}")
         odh.stop_all()

@@ -21,7 +21,7 @@ def sifi_bioarmband_setup():
 
     sb.set_filters(False)
 
-    info = sb.show()
+    info = sb.info()
     print(info)
 
     sb.stop()
@@ -35,32 +35,32 @@ if __name__ == "__main__":
     # Connect to the first available SiFi device (BioPoint or SiFi Band)
     sb.connect()
 
-    # Sensors are off by default. Turn the ECG sensor on, then set its
-    # filter parameters (500 Hz sampling rate).
-    #sb.set_channels(ecg=True, emg=True, eda=True, imu=True, ppg=True)
+    # Get info about the connected device
+    info = sb.info()
 
-    # Start acquisition
-    sb.start()
+    print(info)
 
+    Check_packets = False
 
-    #packet = sb.get_data_with_key(["data", "temperature"])
-    #print(f"Received {packet['packet_type']} packet")
+    if Check_packets:
+        # Start acquisition
+        sb.start()
 
-    # Collect for 10 seconds
-    start_time = time.time()
-    data_buffer = []
+        # Collect for 10 seconds
+        start_time = time.time()
+        data_buffer = []
 
-    try:
-        while time.time() - start_time < 3:
-            packet = sb.get_data()  # Get any packet
-            data_buffer.append(packet)
-            print(f"Received {packet['packet_type']} packet")
-            #print(f"packet: {packet}")
+        try:
+            while time.time() - start_time < 3:
+                packet = sb.get_data()  # Get any packet
+                data_buffer.append(packet)
+                print(f"Received {packet['packet_type']} packet")
+                #print(f"packet: {packet}")
 
-    except KeyboardInterrupt:
-        print("Stopped by user")
+        except KeyboardInterrupt:
+            print("Stopped by user")
+        finally:
+            print(f"Collected {len(data_buffer)} packets")
 
-    finally:
-        sb.stop()
-        sb.disconnect()
-        print(f"Collected {len(data_buffer)} packets")
+    sb.stop()
+    sb.disconnect()

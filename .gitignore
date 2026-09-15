@@ -1,11 +1,10 @@
 .venv/
 __pycache__/
 libEMG_gui/
-Sifi_armband_info.py
+Sifi_armband_testing.py
 sifibridge
 data/
 data/**
 gestures/
 gestures/**
-SGT/_data_collection_panel_odh_enabled.py
 filter_testing.py

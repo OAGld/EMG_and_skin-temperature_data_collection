@@ -1,0 +1,44 @@
+#Define subject
+subject = "subject1/"
+
+#Where to store gesture images
+media_folder = "gestures/"
+
+#What gestures to include
+gestures = [1,2,3]
+
+[sgt_args]
+num_reps = 1 
+rep_time = 5 
+rest_time = 3 
+
+# Booleans must be lowercase
+auto_advance = true
+discrete = false
+
+[streamer]
+name = "SifiBand_2F4C"
+ecg = true
+emg = true
+eda = false
+imu = true
+ppg = false
+temperature = false
+
+filtering = false
+emg_notch_freq = 60
+emg_bandpass = [20, 450]
+eda_bandpass = [0, 5]
+eda_freq = 0
+
+streaming = true
+night_mode = false
+high_gain = false
+
+ecg_fs = 500
+emg_fs = 1000
+eda_fs = 50
+imu_fs = 50
+ppg_sps = 50
+ppg_avg = 1
+temperature_fs = 1

@@ -12,8 +12,6 @@ import os
 # - Periodically check connection to armband and create an event if its not connected?
 # - Create a README.md file
 # - Calculate the power of the signal from each EMG channel, create a plot of the power to make sure the subjects use adequate muscle intensity
-# - Add a plot of the temperature data
-# - Add acclimatization period event
 # - Add the ability to add/edit events in retrospect
 
 if __name__ == "__main__":

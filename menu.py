@@ -25,6 +25,7 @@ class Menu:
 
         self.emg_file = f"{self.data_folder}emg.csv"
         self.events_file = f"{self.data_folder}events.json"
+        self.temperature_file = f"{self.data_folder}temperature.csv"
         os.makedirs(self.data_folder, exist_ok=True)
 
         self.recording_start = None

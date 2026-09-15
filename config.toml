@@ -18,12 +18,12 @@ discrete = false
 
 [streamer]
 name = "SifiBand_2F4C"
-ecg = true
+ecg = false
 emg = true
-eda = false
+eda = true
 imu = true
-ppg = false
-temperature = false
+ppg = true
+temperature = true
 
 filtering = false
 emg_notch_freq = 60
@@ -36,7 +36,7 @@ night_mode = false
 high_gain = false
 
 ecg_fs = 500
-emg_fs = 1000
+emg_fs = 500
 eda_fs = 50
 imu_fs = 50
 ppg_sps = 50

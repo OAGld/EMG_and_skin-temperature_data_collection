@@ -1,44 +1,39 @@
-#Define subject
-subject = "subject1/"
-
-#Where to store gesture images
-media_folder = "gestures/"
-
-#What gestures to include
-gestures = [1,2,3]
+subject = "subject1/" #Name subject
+media_folder = "gestures/" # Where to store gesture images
+gestures = [1,2,3] # What gestures to include
 
 [sgt_args]
-num_reps = 1 
-rep_time = 5 
-rest_time = 3 
+num_reps = 1 # Number of repetitions for each gesture
+rep_time = 5 # Time of each repetition
+rest_time = 3 # Rest time between repetitions
 
 # Booleans must be lowercase
-auto_advance = true
-discrete = false
+auto_advance = true # Advance to next repetition automatically
+discrete = false # Press and hold space bar during repetition instead of timed repetition
 
 [streamer]
-name = "SifiBand_2F4C"
-ecg = false
-emg = true
-eda = true
-imu = true
-ppg = true
-temperature = true
+name = "SifiBand_2F4C" # Name of SiFi band to connect to
+ecg = true # Collect ECG data
+emg = true # Collect EMG data
+eda = true # Collect EDA data
+imu = true # Collect IMU data
+ppg = true # Collect PPG data
+temperature = true # Collect temperature data
 
-filtering = false
-emg_notch_freq = 60
-emg_bandpass = [20, 450]
-eda_bandpass = [0, 5]
-eda_freq = 0
+filtering = false # Activate/deactivate filtering
+emg_notch_freq = 60 # Frequency for EMG notch filter
+emg_bandpass = [20, 450] # Upper and lower cutoff frequency for EMG band pass filter
+eda_bandpass = [0, 5] # Upper and lower cutoff frequency for EDA band pass filter
+eda_freq = 0 # EDA excitation frequency
 
-streaming = true
-night_mode = false
-high_gain = false
+streaming = true # Low latency mode (only supported for BioPoint v1.3 and up)
+night_mode = false # Turn off LEDs during data acquisition
+high_gain = false # # Use more of the ECG/EMG ADC's dynamic range, at the cost of saturating more easily
 
-ecg_fs = 500
-emg_fs = 500
-eda_fs = 50
-imu_fs = 50
-ppg_sps = 50
-ppg_avg = 1
-temperature_fs = 1
+ecg_fs = 500 # set ECG sampling rate
+emg_fs = 500 # set EMG sampling rate
+eda_fs = 50 # set EDA sampling rate
+imu_fs = 50 # set IMU sampling rate
+ppg_sps = 50 # set PPG sampling rate
+ppg_avg = 1 # set PPG averaging factor
+temperature_fs = 1 # set ECG sampling rate

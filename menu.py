@@ -86,6 +86,8 @@ class Menu:
         self.update_status_colours()
         self.window.after(1000, self.check_connection)
 
+    def reset(self):
+        self.odh.reset()
 
     # ============================================================
     # Recording
@@ -163,7 +165,7 @@ class Menu:
 
         self.window = tk.Tk()
         self.window.title("EMG Recording")
-        self.window.geometry("650x650")
+        self.window.geometry("750x750")
 
         self.recording_status = tk.StringVar(value="NOT RECORDING")
         self.streaming_status = tk.StringVar(value="NOT STREAMING")
@@ -306,6 +308,14 @@ class Menu:
             width=20,
             height=2,
             command=self.plot_data
+        ).pack(pady=8)
+
+        tk.Button(
+            control_frame,
+            text="Reset data",
+            width=20,
+            height=2,
+            command=self.reset
         ).pack(pady=8)
 
         tk.Button(

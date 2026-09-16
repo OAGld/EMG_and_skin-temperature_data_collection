@@ -13,6 +13,7 @@ import os
 # - Create a README.md file
 # - Calculate the power of the signal from each EMG channel, create a plot of the power to make sure the subjects use adequate muscle intensity
 # - Add the ability to add/edit events in retrospect
+# - Add a button to reset data, currently all the data ever recording is stored in the shared memory
 
 if __name__ == "__main__":
 
@@ -83,8 +84,6 @@ if __name__ == "__main__":
         #streamer, shared_memory = sifi_bioarmband_streamer(name="SifiBand_2F4C", filtering=False, streaming=True)
 
         odh = OnlineDataHandler(shared_memory)
-
-        data, counts = odh.get_data()
 
         Auxiliary.download_gestures(gestures, media_folder, download_imgs=True)
 

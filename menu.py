@@ -15,13 +15,17 @@ def run_sgt(events_file, sgt_args):
 
 class Menu:
 
-    def __init__(self, subject, data_folder, gestures, media_folder, sgt_args, odh):
+    # ============================================================
+    # Auxiliary
+    # ============================================================
+    def __init__(self, subject, data_folder, gestures, media_folder, sgt_args, streamer_args, odh):
         self.odh = odh
         self.subject = subject
         self.data_folder = data_folder
         self.gestures = gestures
         self.media_folder = media_folder
         self.sgt_args = sgt_args
+        self.filtering = streamer_args["filtering"]
 
         self.emg_file = f"{self.data_folder}emg.csv"
         self.events_file = f"{self.data_folder}events.json"
@@ -49,6 +53,39 @@ class Menu:
 
     def start_visualize(self):
         self.odh.visualize_channels(channels=[0, 2, 3, 4], num_samples=2000)
+
+    # Update the color text of the status indicators
+    def update_status_colours(self):
+
+        # Recording
+        if self.recording_status.get() == "RECORDING":
+            self.recording_cell.config(bg="green") 
+            self.recording_label.config(bg="green", fg="black")
+        else:
+            self.recording_cell.config(bg="red")
+            self.recording_label.config(bg="red", fg="black")
+
+        # Streaming
+        if self.streaming_status.get() == "STREAMING":
+            self.streaming_cell.config(bg="green")
+            self.streaming_label.config(bg="green", fg="black")
+        else:
+            self.streaming_cell.config(bg="red")
+            self.streaming_label.config(bg="red", fg="black")
+
+    def check_connection(self):
+        val, count = self.odh.get_data(N=0, filter=self.filtering)
+
+        streaming = self.odh._check_streaming()
+        if streaming:
+            self.streaming_status.set("STREAMING")
+        else:
+            self.streaming_status.set("NOT STREAMING")
+            self.create_event("Lost connection to device")
+
+        self.update_status_colours()
+        self.window.after(1000, self.check_connection)
+
 
     # ============================================================
     # Recording
@@ -128,9 +165,11 @@ class Menu:
         self.window.title("EMG Recording")
         self.window.geometry("650x650")
 
-        self.recording_status = tk.StringVar(
-            value="NOT RECORDING"
-        )
+        self.recording_status = tk.StringVar(value="NOT RECORDING")
+        self.streaming_status = tk.StringVar(value="NOT STREAMING")
+
+        # Check connection every second
+        self.window.after(1000, self.check_connection)
 
         # ========================================================
         # Title
@@ -144,14 +183,45 @@ class Menu:
 
 
         # ========================================================
-        # Recording indicator
+        # Indicators
         # ========================================================
 
-        tk.Label(
-            self.window,
+        indicator_frame = tk.Frame(self.window)
+        indicator_frame.pack(pady=(0, 15))
+
+        # Recording cell
+        self.recording_cell = tk.Frame(
+            indicator_frame,
+            relief=tk.RIDGE,
+            borderwidth=2,
+            padx=15,
+            pady=8
+        )
+        self.recording_cell.pack(side=tk.LEFT, padx=5)
+
+        self.recording_label = tk.Label(
+            self.recording_cell,
             textvariable=self.recording_status,
             font=("Arial", 14)
-        ).pack(pady=(0, 15))
+        )
+        self.recording_label.pack()
+
+        # Streaming cell
+        self.streaming_cell = tk.Frame(
+            indicator_frame,
+            relief=tk.RIDGE,
+            borderwidth=2,
+            padx=15,
+            pady=8
+        )
+        self.streaming_cell.pack(side=tk.LEFT, padx=5)
+
+        self.streaming_label = tk.Label(
+            self.streaming_cell,
+            textvariable=self.streaming_status,
+            font=("Arial", 14)
+        )
+        self.streaming_label.pack()
 
 
         # ========================================================

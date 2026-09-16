@@ -88,7 +88,7 @@ if __name__ == "__main__":
 
         Auxiliary.download_gestures(gestures, media_folder, download_imgs=True)
 
-        Menu(subject, data_folder, gestures, media_folder, sgt_args, odh=odh)
+        Menu(subject, data_folder, gestures, media_folder, sgt_args, streamer_args, odh=odh)
 
         odh.stop_all()
         streamer.terminate()

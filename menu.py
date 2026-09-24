@@ -289,21 +289,63 @@ class Menu:
         self.window.after(1000, self.check_connection)
 
         # ========================================================
+        # Scrollable container
+        # ========================================================
+
+        outer_frame = tk.Frame(self.window)
+        outer_frame.pack(fill="both", expand=True)
+
+        canvas = tk.Canvas(outer_frame, highlightthickness=0)
+        scrollbar = tk.Scrollbar(outer_frame, orient="vertical", command=canvas.yview)
+        scrollable_frame = tk.Frame(canvas)
+
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
+
+        canvas_window = canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        # Make the inner frame match the canvas width so widgets can expand horizontally
+        canvas.bind(
+            "<Configure>",
+            lambda e: canvas.itemconfig(canvas_window, width=e.width)
+        )
+
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+
+        # Mouse wheel scrolling (Windows/macOS use <MouseWheel>, Linux uses Button-4/5)
+        def _on_mousewheel(event):
+            if event.num == 4:
+                canvas.yview_scroll(-1, "units")
+            elif event.num == 5:
+                canvas.yview_scroll(1, "units")
+            else:
+                canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+
+        canvas.bind_all("<MouseWheel>", _on_mousewheel)   # Windows / macOS
+        canvas.bind_all("<Button-4>", _on_mousewheel)     # Linux scroll up
+        canvas.bind_all("<Button-5>", _on_mousewheel)     # Linux scroll down
+
+        # From here on, everything is placed in `scrollable_frame` instead of `self.window`
+
+        # ========================================================
         # Title
         # ========================================================
 
         tk.Label(
-            self.window,
+            scrollable_frame,
             text="EMG Recording",
             font=("Arial", 20)
         ).pack(pady=(20, 15))
-
 
         # ========================================================
         # Indicators
         # ========================================================
 
-        indicator_frame = tk.Frame(self.window)
+        indicator_frame = tk.Frame(scrollable_frame)
         indicator_frame.pack(pady=(0, 15))
 
         # Recording cell
@@ -345,7 +387,7 @@ class Menu:
         # Main container
         # ========================================================
 
-        main_frame = tk.Frame(self.window)
+        main_frame = tk.Frame(scrollable_frame)
 
         main_frame.pack(
             fill="both",

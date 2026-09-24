@@ -1,6 +1,6 @@
 subject = "subject1/" #Name subject
 media_folder = "gestures/" # Where to store gesture images
-gestures = [1,2,3] # What gestures to include
+gestures = [2, 3, 4] # What gestures to include
 
 [sgt_args]
 num_reps = 1 # Number of repetitions for each gesture
@@ -31,7 +31,7 @@ night_mode = false # Turn off LEDs during data acquisition
 high_gain = false # # Use more of the ECG/EMG ADC's dynamic range, at the cost of saturating more easily
 
 ecg_fs = 500 # set ECG sampling rate
-emg_fs = 500 # set EMG sampling rate
+emg_fs = 2000 # set EMG sampling rate
 eda_fs = 50 # set EDA sampling rate
 imu_fs = 50 # set IMU sampling rate
 ppg_sps = 50 # set PPG sampling rate

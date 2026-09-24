@@ -9,11 +9,9 @@ import shutil
 import os
 
 #To-do
-# - Periodically check connection to armband and create an event if its not connected?
 # - Create a README.md file
-# - Calculate the power of the signal from each EMG channel, create a plot of the power to make sure the subjects use adequate muscle intensity
 # - Add the ability to add/edit events in retrospect
-# - Add a button to reset data, currently all the data ever recording is stored in the shared memory
+# - Investigate progressive memory consumption
 
 if __name__ == "__main__":
 
@@ -67,7 +65,6 @@ if __name__ == "__main__":
             "temperature_fs": config["streamer"]["temperature_fs"]
         }
 
-        data_folder = f"data/{subject}"
         os.makedirs(data_folder, exist_ok=True)
 
         # Save a copy of the configuration used for this recording
@@ -81,7 +78,6 @@ if __name__ == "__main__":
     # Run program
     try:
         streamer, shared_memory = sifi_bioarmband_streamer(**streamer_args)
-        #streamer, shared_memory = sifi_bioarmband_streamer(name="SifiBand_2F4C", filtering=False, streaming=True)
 
         odh = OnlineDataHandler(shared_memory)
 

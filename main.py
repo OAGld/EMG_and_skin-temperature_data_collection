@@ -12,7 +12,7 @@ import os
 # - Create a README.md file
 # - Add the ability to add/edit events in retrospect
 # - Investigate progressive memory consumption
-# - Add the ability to scroll
+# - Add the ability to scroll (OK)
 
 if __name__ == "__main__":
 

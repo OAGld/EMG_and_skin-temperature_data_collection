@@ -51,10 +51,10 @@ class Menu:
         df = pd.read_csv(self.emg_file)
         row_count = len(df)
 
-        if row_count < 50001:
+        if row_count < 75001:
             print("Not enough data to analyze. Please record more data.")
         else:
-            skiprows = row_count - 50000
+            skiprows = row_count - 75000
 
             emg_filter = RegexFilter(
                 left_bound="",       # nothing before "emg"

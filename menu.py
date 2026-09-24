@@ -214,21 +214,33 @@ class Menu:
  
         if not filename.lower().endswith(".txt"):
             filename += ".txt"
- 
+
         filepath = os.path.join(self.data_folder, filename)
-        self.info_filepath = filepath
-        self.info_file_label_var.set(f"File: {filename}")
- 
+        file_exists = os.path.exists(filepath)
+
         try:
-            with open(filepath, "w", encoding="utf-8") as f:
-                f.write(self.build_info_header())
-                for comment_line in self.comments:
-                    f.write(comment_line + "\n")
+            if not file_exists:
+                with open(filepath, "w", encoding="utf-8") as f:
+                    f.write(self.build_info_header())
+                    for comment_line in self.comments:
+                        f.write(comment_line + "\n")
  
-            messagebox.showinfo("Saved", f"Session info saved to:\n{filepath}")
+                messagebox.showinfo("Saved", f"New session info file created:\n{filepath}")
+ 
+            else:
+                messagebox.showinfo(
+                    "Existing file",
+                    f"A file with this name already exists.\n"
+                    f"New comments will be appended to it:\n{filepath}"
+                )
+ 
+            # Either way, comments added from now on should go to this file
+            self.info_filepath = filepath
+            self.info_file_label_var.set(f"File: {filename}")
  
         except OSError as e:
-            messagebox.showerror("Error", f"Could not write to file:\n{e}")
+            messagebox.showerror("Error", f"Could not access file:\n{e}")
+
  
     def add_comment(self):
         """Add a timestamped comment to the log. If an information file has
@@ -255,8 +267,6 @@ class Menu:
                 messagebox.showerror("Error", f"Could not append to file:\n{e}")
  
         self.comment_entry.delete("1.0", tk.END)
-
- 
 
     # ============================================================
     # Plot

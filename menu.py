@@ -48,8 +48,8 @@ class Menu:
         ofdh  = OfflineDataHandler()
         fe = FeatureExtractor()
 
-        with open(self.emg_file, "r") as f:
-            row_count = sum(1 for line in f)
+        df = pd.read_csv("data.csv")
+        row_count = len(df)
 
         if row_count < 50001:
             print("Not enough data to analyze. Please record more data.")

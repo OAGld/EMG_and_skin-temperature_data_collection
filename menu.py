@@ -48,7 +48,7 @@ class Menu:
         ofdh  = OfflineDataHandler()
         fe = FeatureExtractor()
 
-        df = pd.read_csv("data.csv")
+        df = pd.read_csv(self.emg_file)
         row_count = len(df)
 
         if row_count < 50001:

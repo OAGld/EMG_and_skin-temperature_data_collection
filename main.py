@@ -10,7 +10,7 @@ import os
 
 #To-do
 # - Create a README.md file
-# - Add the ability to add/edit events in retrospect
+# - Add the ability to add/edit events in retrospect (OK)
 # - Investigate progressive memory consumption
 # - Add the ability to scroll (OK)
 

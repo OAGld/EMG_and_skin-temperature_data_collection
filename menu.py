@@ -3,6 +3,7 @@ import time
 import tkinter as tk
 from tkinter import simpledialog, messagebox, filedialog
 import pandas as pd
+import numpy as np
 import matplotlib.pyplot as plt
 import os
 from SGT.gui import GUI
@@ -44,41 +45,39 @@ class Menu:
         self.create_gui()
 
     def analyze_data(self):
+        # Load every sample: column 0 = timestamp, columns 1-8 = EMG channels
+        emg = pd.read_csv(self.emg_file, sep=r"\s+", header=None)
 
-        ofdh  = OfflineDataHandler()
-        fe = FeatureExtractor()
-
-        df = pd.read_csv(self.emg_file)
-        row_count = len(df)
-
-        if row_count < 75001:
+        if len(emg) < 2:
             print("Not enough data to analyze. Please record more data.")
-        else:
-            skiprows = row_count - 75000
+            return
 
-            emg_filter = RegexFilter(
-                left_bound="",       # nothing before "emg"
-                right_bound=".csv",  # "emg" is immediately followed by ".csv"
-                values=["emg"],      # the only value we're matching
-                description=""       # empty string = don't store this as metadata, just filter
-            )
-            ofdh.get_data(folder_location=self.data_folder, regex_filters=[emg_filter], delimiter=" ", skiprows=skiprows, data_column=[1, 2, 3, 4, 5, 6, 7, 8])
-            data_windows, data_meta = ofdh.parse_windows(window_size=50, window_increment=10)
+        t = emg.iloc[:, 0].to_numpy(dtype=float)
 
-            rms_values = fe.getRMSfeat(data_windows)
+        # Repeated timestamps mean samples were stamped per batch, so spread
+        # the samples in each batch evenly across that batch's time span
+        unique_t, start_idx, counts = np.unique(t, return_index=True, return_counts=True)
+        if len(unique_t) > 1:
+            block_dt = np.diff(unique_t) / counts[:-1]            # seconds per sample in each block
+            block_dt = np.append(block_dt, np.median(block_dt))   # last block: reuse typical spacing
+            block_id = np.repeat(np.arange(len(unique_t)), counts)
+            pos_in_block = np.arange(len(t)) - start_idx[block_id]
+            t = t + pos_in_block * block_dt[block_id]
 
-            num_channels = rms_values.shape[1]
-            fig, ax = plt.subplots(figsize=(10, 5))
-            for ch in range(num_channels):
-                ax.plot(rms_values[:, ch], label=f"Channel {ch + 1}")
+        emg_time = pd.to_datetime(t, unit="s")
 
-            ax.set_xlabel("Window Index")
-            ax.set_ylabel("RMS Amplitude")
-            ax.set_title("RMS Signal Strength per Window")
-            ax.legend(loc="upper right", ncol=2, fontsize="small")
-            ax.grid(True, alpha=0.3)
-            fig.tight_layout()
-            plt.show()
+        fig, ax = plt.subplots(figsize=(12, 5))
+        for ch in range(1, 9):
+            ax.plot(emg_time, emg.iloc[:, ch], label=f"Channel {ch}", linewidth=0.5)
+
+        ax.set_xlabel("Time")
+        ax.set_ylabel("EMG Amplitude")
+        ax.set_title("EMG Signal (All Samples)")
+        ax.legend(loc="upper right", ncol=2, fontsize="small")
+        ax.grid(True, alpha=0.3)
+        fig.autofmt_xdate()
+        fig.tight_layout()
+        plt.show()
 
     def analyze_device(self):
         self.odh.analyze_hardware()

@@ -5,8 +5,8 @@ import platform
 import numpy as np
 
 from multiprocessing import Process, Event, Lock
-from Streamer._sifi_bridge_streamer import SiFiBridgeStreamer
-from Streamer.shared_memory_manager import assign_shared_memory_locks
+from CustomLibEMG.Streamer._sifi_bridge_streamer import SiFiBridgeStreamer
+from CustomLibEMG.Streamer.shared_memory_manager import assign_shared_memory_locks
 
 
 def sifi_bioarmband_streamer(

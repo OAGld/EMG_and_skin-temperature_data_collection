@@ -8,7 +8,7 @@ import time
 import csv
 import json
 from datetime import datetime
-from SGT._utils import Media, set_texture, init_matplotlib_canvas, matplotlib_to_numpy
+from CustomLibEMG.SGT._utils import Media, set_texture, init_matplotlib_canvas, matplotlib_to_numpy
 
 import threading
 import matplotlib.pyplot as plt
@@ -116,14 +116,10 @@ class DataCollectionPanel:
                     with dpg.group(horizontal=True):
                         dpg.add_button(label="Start", callback=self.start_callback,
                                       width=button_width, height=button_height)
-                        dpg.add_button(label="Visualize", callback=self.visualize_callback,
-                                      width=button_width, height=button_height)
         
         # dpg.set_primary_window("__dc_configuration_window", True)
 
     def start_callback(self):
-        if not (self.gui.online_data_handler and sum(list(self.gui.online_data_handler.get_data()[1].values()))):
-            raise ConnectionError('Attempted to start data collection, but data are not being received. Please ensure the OnlineDataHandler is receiving data.')
 
         self.get_settings()
         dpg.delete_item("__dc_configuration_window")
@@ -191,7 +187,6 @@ class DataCollectionPanel:
 
     def spawn_collection_window(self, media_list):
         # open first frame of gif
-        self.gui.online_data_handler.prepare_smm()
         texture = media_list[0][0].get_dpg_formatted_texture(width=self.video_player_width,height=self.video_player_height)
         set_texture("__dc_collection_visual", texture, width=self.video_player_width, height=self.video_player_height)
         
@@ -244,20 +239,14 @@ class DataCollectionPanel:
     def run_sgt(self, media_list):
         self.i = 0
         self.advance = True
-        #self.gui.online_data_handler.reset()
+
         while self.i < len(media_list):
-            #self.rep_buffer = {mod:[] for mod in self.gui.online_data_handler.modalities}
-            #self.rep_count  = {mod:0 for mod in self.gui.online_data_handler.modalities}
-            # do the rest (skip in discrete mode)
             if self.rest_time and self.i < len(media_list) and not self.discrete:
                 self.play_collection_visual(media_list[self.i], active=False)
                 media_list[self.i][0].reset()
-            #self.gui.online_data_handler.reset()
 
             self.play_collection_visual(media_list[self.i], active=True)
 
-            #output_path = Path(self.output_folder, "C_" + str(media_list[self.i][2]) + "_R_" + str(media_list[self.i][3]) + ".csv").absolute().as_posix()
-            #self.save_data(output_path)
             last_rep = media_list[self.i][3]
             self.i = self.i+1
             is_final_media = self.i == len(media_list)
@@ -314,6 +303,8 @@ class DataCollectionPanel:
         set_texture("__dc_collection_visual", texture, self.video_player_width, self.video_player_height)
         # initialize motion and frame timers
         motion_timer = time.perf_counter_ns()
+
+        #Create start event when the collection visual starts
         if active:
             events_file = self.gui.events_file
 
@@ -327,6 +318,7 @@ class DataCollectionPanel:
             with open(events_file, "a") as f:
                 json.dump(event, f)
                 f.write("\n")
+
         while (time.perf_counter_ns() - motion_timer)/1e9 < timer_duration:
             time.sleep(1/media[0].fps) # never refresh faster than media fps
             # update visual
@@ -335,15 +327,10 @@ class DataCollectionPanel:
             set_texture("__dc_collection_visual", texture, self.video_player_width, self.video_player_height)
             # update progress bar
             progress = min(1,(time.perf_counter_ns() - motion_timer)/(1e9*timer_duration))
-            # grab incoming new data
-            #if active:
-            #    vals, count = self.gui.online_data_handler.get_data()
-            #    for mod in self.gui.online_data_handler.modalities:
-            #        new_samples = count[mod][0][0]-self.rep_count[mod]
-            #        self.rep_buffer[mod] = [vals[mod][:new_samples,:]] + self.rep_buffer[mod]
-            #        self.rep_count[mod]  = self.rep_count[mod] + new_samples
 
             dpg.set_value("__dc_progress", value = progress)
+
+        #Create stop event after the collection visual
         if active:
             #self.gui.Menu.create_event(f"Stop gesture: {media[1]}")
             events_file = self.gui.events_file
@@ -358,23 +345,3 @@ class DataCollectionPanel:
             with open(events_file, "a") as f:
                 json.dump(event, f)
                 f.write("\n")
-
-    def save_data(self, filename):
-        file_parts = filename.split('.')
-        
-        for mod in self.rep_buffer:
-            filename = file_parts[0] + "_" + mod + "." + file_parts[1]
-            data = np.vstack(self.rep_buffer[mod])[::-1,:]
-            if data.size == 0:
-                raise ConnectionError('Attempting to store data, but received 0 samples during repetition, suggesting that the data stream from the device has been interrupted. Please check the device connection and verify that previous files are not missing samples.')
-            with open(filename, "w", newline='', encoding='utf-8') as file:
-                writer = csv.writer(file)
-                for row in data:
-                    writer.writerow(row)
-
-    def visualize_callback(self):
-        self.visualization_thread = threading.Thread(target=self._run_visualization_helper)
-        self.visualization_thread.start()
-    
-    def _run_visualization_helper(self):
-        self.gui.online_data_handler.visualize(block=False)

@@ -4,6 +4,11 @@ import json
 import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.widgets import RadioButtons
+from matplotlib.animation import FuncAnimation
+from multiprocessing import Process
+import matplotlib.pyplot as plt
+from matplotlib import pyplot
+import numpy as np
 
 def download_gestures(gesture_ids, folder, download_imgs=True, download_gifs=False, redownload=False):
     """

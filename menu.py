@@ -6,7 +6,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import os
-from SGT.gui import GUI
+from CustomLibEMG.gui import GUI
 import multiprocessing
 from Auxiliary import plot_data_ext
 from libemg.data_handler import OfflineDataHandler, RegexFilter

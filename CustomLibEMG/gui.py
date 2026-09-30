@@ -1,5 +1,5 @@
 import dearpygui.dearpygui as dpg
-from SGT._data_collection_panel import DataCollectionPanel
+from CustomLibEMG.SGT._data_collection_panel import DataCollectionPanel
 import inspect
 import time
 import os

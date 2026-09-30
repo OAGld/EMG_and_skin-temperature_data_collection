@@ -180,61 +180,49 @@ class OnlineDataHandler(DataHandler):
 
     def _visualize(self, num_samples):
         self.prepare_smm()
+
         pyplot.style.use('ggplot')
-
-        fig, ax = pyplot.subplots(len(self.modalities), 1, squeeze=False)
-        fig.canvas.mpl_connect('close_event', lambda e: self.visualize_signal.set())
+        plots = []
+        fig, ax = pyplot.subplots(len(self.modalities), 1,squeeze=False)
+        def on_close(event):
+            self.visualize_signal.set()
+        fig.canvas.mpl_connect('close_event', on_close)
         fig.suptitle('Raw Data', fontsize=16)
-
-        x_data = np.arange(num_samples)
-        lines = []  # flat list of Line2D, one per (modality, channel)
-        for i, mod in enumerate(self.modalities):
-            ax[i][0].set_title(mod)                      # set once
-            ax[i][0].set_xlim(0, num_samples)
+        for i,mod in enumerate(self.modalities):
             num_channels = self.smm.get_variable(mod).shape[1]
-            for j in range(num_channels):
-                line, = ax[i][0].plot([], [], label=f"{mod}_CH{j+1}")
-                lines.append((i, j, line))
+            for j in range(0,num_channels):
+                plots.append(ax[i][0].plot([],[],label=mod+"_CH"+str(j+1)))
+        
         fig.legend()
-
-        frame_count = 0
-
+        
         def update(frame):
-            nonlocal frame_count
-            frame_count += 1
-            data, _ = self.get_data(N=num_samples, filter=True)  # only what you need, if supported
-
-            offsets = {}
+            data, _ = self.get_data(N=0,filter=True)
+            line = 0
             for i, mod in enumerate(self.modalities):
-                d = data[mod]
-                if len(d) == 0:
-                    continue
-                d = d[-num_samples:]                      # most recent samples
-                d = d - d.mean(axis=0)                    # vectorized
-                data[mod] = d
-                offsets[mod] = 1.5 * np.abs(d).max()
-
-            artists = []
-            for i, j, line in lines:
-                mod = self.modalities[i]
-                if mod not in offsets:
-                    continue
-                d = data[mod]
-                line.set_data(x_data[:len(d)], d[:, j] + offsets[mod] * j)
-                artists.append(line)
-
-            # rescale only occasionally
-            if frame_count % 10 == 0:
-                for i in range(len(self.modalities)):
-                    ax[i][0].relim()
-                    ax[i][0].autoscale_view(scalex=False)
-                fig.canvas.draw_idle()
-
-            return artists
-
-        animation = FuncAnimation(fig, update, interval=50, blit=False, cache_frame_data=False)
-        pyplot.show()
-        print("ODH->visualize ended.")
+                for j in range(data[mod].shape[1]):
+                    data[mod][:,j] = data[mod][:,j] - np.mean(data[mod][:,j])
+                inter_channel_amount = 1.5 * np.max(data[mod])
+                if len(data[mod]) > num_samples:
+                    data[mod] = data[mod][:num_samples,:]
+                if len(data[mod]) > 0:
+                    x_data = list(range(0,data[mod].shape[0]))
+                    num_channels = data[mod].shape[1]
+                    for j in range(0,num_channels):
+                        y_data = data[mod][:,j]
+                        plots[line][0].set_data(x_data, y_data +inter_channel_amount*j)
+                        line += 1
+            for i in range(len(self.modalities)):
+                ax[i][0].relim()
+                ax[i][0].autoscale_view()
+                ax[i][0].set_title(self.modalities[i])
+            return plots,
+    
+        while True:
+            animation = FuncAnimation(fig, update, interval=500, repeat=False)
+            pyplot.show()
+            if self.visualize_signal.is_set():
+                print("ODH->visualize ended.")
+                break
 
     def visualize_channels(self, channels, num_samples=500, y_axes=None):
         """Visualize individual channels (each channel in its own plot).

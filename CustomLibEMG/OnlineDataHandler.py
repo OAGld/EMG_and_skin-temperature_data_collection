@@ -218,7 +218,7 @@ class OnlineDataHandler(DataHandler):
             return plots,
     
         while True:
-            animation = FuncAnimation(fig, update, interval=500, repeat=False)
+            animation = FuncAnimation(fig, update, interval=250, repeat=False)
             pyplot.show()
             if self.visualize_signal.is_set():
                 print("ODH->visualize ended.")

@@ -11,6 +11,27 @@ import multiprocessing
 from Auxiliary import plot_data_ext, data_QA_continuous
 from libemg.data_handler import OfflineDataHandler, RegexFilter
 from libemg.feature_extractor import FeatureExtractor
+import threading
+import sys
+import queue
+
+class TextRedirector:
+    """File-like object that sends written text to a queue.
+    The GUI drains the queue on its own timer, so it's safe even if
+    print() is called from a background thread."""
+
+    def __init__(self, q, original):
+        self.q = q
+        self.original = original  # keep the real stream so the console still gets output
+
+    def write(self, text):
+        self.q.put(text)
+        if self.original is not None:
+            self.original.write(text)
+
+    def flush(self):
+        if self.original is not None:
+            self.original.flush()
 
 def run_sgt(events_file, sgt_args):
     training_ui = GUI(events_file=events_file, args=sgt_args, gesture_height=500, gesture_width=500)
@@ -48,11 +69,41 @@ class Menu:
         data_QA_continuous(self.odh)
 
     def set_QA_baseline(self):
-        # Initiate data QA class
-        self.odh.set_baseline()
+        # Run in a background thread so the countdown doesn't block the GUI
+        if getattr(self, "_baseline_running", False):
+            return  # ignore double-clicks while calibrating
+        self._baseline_running = True
+
+        def worker():
+            try:
+                self.odh.set_baseline()
+            except Exception as e:
+                print(f"Calibration failed: {e}")
+            finally:
+                self._baseline_running = False
+
+        threading.Thread(target=worker, daemon=True).start()
 
     def monitor_data(self):
         m_process = self.odh.monitor_data()
+
+    def poll_console(self):
+        """Move queued text into the Text widget (runs on the Tk thread)."""
+        try:
+            while True:
+                text = self.console_queue.get_nowait()
+                self.console.configure(state="normal")
+                self.console.insert(tk.END, text)
+                self.console.see(tk.END)
+                self.console.configure(state="disabled")
+        except queue.Empty:
+            pass
+        self.window.after(100, self.poll_console)
+
+    def clear_console(self):
+        self.console.configure(state="normal")
+        self.console.delete("1.0", tk.END)
+        self.console.configure(state="disabled")
 
     def analyze_data(self):
         # Load every sample: column 0 = timestamp, columns 1-8 = EMG channels
@@ -289,6 +340,7 @@ class Menu:
 
     def exit_program(self):
         self.create_event("Exit program")
+        sys.stdout, sys.stderr = self._orig_stdout, self._orig_stderr
         self.window.destroy()
 
     # ============================================================
@@ -351,21 +403,11 @@ class Menu:
         # From here on, everything is placed in `scrollable_frame` instead of `self.window`
 
         # ========================================================
-        # Title
-        # ========================================================
-
-        tk.Label(
-            scrollable_frame,
-            text="EMG Recording",
-            font=("Arial", 20)
-        ).pack(pady=(20, 15))
-
-        # ========================================================
         # Indicators
         # ========================================================
 
         indicator_frame = tk.Frame(scrollable_frame)
-        indicator_frame.pack(pady=(0, 15))
+        indicator_frame.pack(pady=(20, 15))
 
         # Recording cell
         self.recording_cell = tk.Frame(
@@ -696,6 +738,36 @@ class Menu:
                 pady=7,
                 sticky="ew"
             )
+
+        # ========================================================
+        # Console output
+        # ========================================================
+
+        console_frame = tk.LabelFrame(
+            scrollable_frame,
+            text="Console output",
+            font=("Arial", 12),
+            padx=10,
+            pady=10
+        )
+        console_frame.pack(fill="both", expand=True, padx=20, pady=(10, 20))
+
+        self.console = tk.Text(console_frame, height=12, state="disabled", wrap="word")
+        console_scroll = tk.Scrollbar(console_frame, command=self.console.yview)
+        self.console.configure(yscrollcommand=console_scroll.set)
+        self.console.pack(side="left", fill="both", expand=True)
+        console_scroll.pack(side="right", fill="y")
+
+        tk.Button(
+            console_frame, text="Clear", command=self.clear_console
+        ).pack(side="bottom", anchor="e")
+
+        # Redirect stdout and stderr (stderr catches tracebacks)
+        self.console_queue = queue.Queue()
+        self._orig_stdout, self._orig_stderr = sys.stdout, sys.stderr
+        sys.stdout = TextRedirector(self.console_queue, self._orig_stdout)
+        sys.stderr = TextRedirector(self.console_queue, self._orig_stderr)
+        self.window.after(100, self.poll_console)
 
         # ========================================================
         # Start GUI

@@ -9,8 +9,6 @@ import os
 from CustomLibEMG.gui import GUI
 import multiprocessing
 from Auxiliary import plot_data_ext, data_QA_continuous
-from libemg.data_handler import OfflineDataHandler, RegexFilter
-from libemg.feature_extractor import FeatureExtractor
 import threading
 import sys
 import queue

@@ -3,7 +3,7 @@ media_folder = "gestures/" # Where to store gesture images
 gestures = [2, 3, 4] # What gestures to include
 
 [sgt_args]
-num_reps = 1 # Number of repetitions for each gesture
+num_reps = 2 # Number of repetitions for each gesture
 rep_time = 5 # Time of each repetition
 rest_time = 3 # Rest time between repetitions
 

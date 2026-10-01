@@ -307,8 +307,9 @@ class DataCollectionPanel:
         #Create start event when the collection visual starts
         if active:
             events_file = self.gui.events_file
+            rep_number = media[3] + 1
 
-            event_name = f"start gesture: {media[1]}"
+            event_name = f"start gesture: {media[1]} (rep {rep_number})"
             event = {
                 "timestamp": time.time(),
                 "event": event_name
@@ -334,8 +335,9 @@ class DataCollectionPanel:
         if active:
             #self.gui.Menu.create_event(f"Stop gesture: {media[1]}")
             events_file = self.gui.events_file
+            rep_number = media[3] + 1
 
-            event_name = f"Stop gesture: {media[1]}"
+            event_name = f"Stop gesture: {media[1]} (rep {rep_number})"
             event = {
                 "timestamp": time.time(),
                 "event": event_name

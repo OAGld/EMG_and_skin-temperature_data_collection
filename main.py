@@ -15,8 +15,14 @@ import os
 # - Investigate progressive memory consumption
 # - Add the ability to scroll (OK)
 # - Add a few data checks that run in real time
+#   - Check if signal is above 3x std when performing a gesture (OK)
+#   - Check if the signal is outside the range of what you would expect from an EMG signal
+#   - Check if there are any dropped packets and add a comment if it is
+#   - More checks?
 # - Find the reason why visualize is so resource intensive (OK)
-# - Add st.out to the interface so you dont need multiple windows open
+# - Add st.out to the interface so you dont need multiple windows open (OK)
+# - Remove plot of power signal?
+# - Add rep number to the event during screen guided gesturing (OK)
 
 if __name__ == "__main__":
 

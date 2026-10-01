@@ -14,6 +14,9 @@ import os
 # - Add the ability to add/edit events in retrospect (OK)
 # - Investigate progressive memory consumption
 # - Add the ability to scroll (OK)
+# - Add a few data checks that run in real time
+# - Find the reason why visualize is so resource intensive (OK)
+# - Add st.out to the interface so you dont need multiple windows open
 
 if __name__ == "__main__":
 

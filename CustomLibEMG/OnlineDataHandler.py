@@ -9,21 +9,26 @@ import time
 import math
 import wfdb
 import copy
+import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 from matplotlib.axes import Axes
-from scipy.ndimage import zoom
-from scipy.signal import decimate
 from matplotlib import pyplot
 from matplotlib.animation import FuncAnimation
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from matplotlib.figure import Figure
+from scipy.ndimage import zoom
+from scipy.signal import decimate
 from pathlib import Path
 from glob import glob
 from multiprocessing import Process
 from multiprocessing import Process, Event
+import multiprocessing as mp
 from libemg.feature_extractor import FeatureExtractor
 from libemg.shared_memory_manager import SharedMemoryManager
 from scipy.signal import welch
 from libemg.utils import get_windows, _get_fn_windows, _get_mode_windows, make_regex
+import tkinter as tk
 
 class DataHandler:
     def __init__(self):
@@ -66,7 +71,10 @@ class OnlineDataHandler(DataHandler):
         self.visualize_signal = Event()        
         self.fi = None
         self.channel_mask = channel_mask
-    
+        self.baseline_mav = None    # mean of windowed MAV, all channels combined
+        self.baseline_std = None    # std of windowed MAV, all channels combined
+        self.baseline_window_size = None
+
     def prepare_smm(self):
         self.modalities = []
         self.smm = SharedMemoryManager()
@@ -161,6 +169,140 @@ class OnlineDataHandler(DataHandler):
             print("Resolution: " + str(self._get_resolution(t_data)) + " bits")
         
         print("Analysis sucessfully complete. ODH process has stopped.")
+
+    def set_baseline(self):
+        self.reset()
+        print(f"Wait 5 seconds.")
+
+        for i in range(1, 6):
+            print(i)
+            time.sleep(1)
+
+        data, count = self.get_data(N=0, filter=False)
+        emg = np.asarray(data['emg'])      # assumed shape: (samples, channels)
+
+        # Keep only valid samples (drop unfilled zero rows)
+        n_valid = int(np.asarray(count['emg']).item())
+        emg = emg[:n_valid]
+
+        # Remove DC offset (per channel)
+        emg = emg - emg.mean(axis=0)
+
+        # Split into non-overlapping windows
+        n_windows = 25
+        window_size = emg.shape[0] // n_windows
+        if window_size < 1:
+            raise ValueError("Not enough baseline data to compute a standard deviation.")
+        windows = emg[:n_windows * window_size].reshape(n_windows, window_size, -1)
+
+        # One MAV per window, averaged over samples AND channels -> shape (n_windows,)
+        mav = np.mean(np.abs(windows), axis=(1, 2))
+
+        self.baseline_mav = mav.mean()
+        self.baseline_std = mav.std(ddof=1)
+        self.baseline_window_size = window_size
+
+        print("calibration complete")
+
+    def monitor_data(self, parent=None, num_samples=1000, interval_ms=500, max_points=5000):
+        """Live view of the EMG stream: stacked channels + windowed MAV across all channels."""
+
+        win = tk.Toplevel(parent)
+        win.title("EMG Monitor")
+
+        sample, _ = self.get_data(N=1, filter=False)
+        n_ch = sample['emg'].shape[1]
+
+        fig = Figure(figsize=(9, 7), tight_layout=True)
+        gs = fig.add_gridspec(3, 1, height_ratios=[4, 3, 1])
+        ax_stack = fig.add_subplot(gs[0])
+        ax_mav = fig.add_subplot(gs[1], sharex=ax_stack)
+        ax_ind = fig.add_subplot(gs[2])
+        ax_stack.set_title("EMG data all channels")
+        ax_mav.set_title("MAV (all channels)")
+        ax_mav.set_xlabel("Samples")
+        ax_stack.set_xlim(0, num_samples)
+        ax_stack.set_yticks([])
+        # Indicator panel: no ticks or frame, just text and colored boxes
+        ax_ind.set_xlim(0, 1)
+        ax_ind.set_ylim(0, 1)
+        ax_ind.axis("off")
+
+        status = ax_ind.text(0.02, 0.5, "NO BASELINE", ha="left", va="center",
+                     fontsize=12, fontweight="bold", color="white",
+                     bbox=dict(boxstyle="round,pad=0.5", fc="grey", ec="none"))
+        detail = ax_ind.text(0.30, 0.5, "", ha="left", va="center", fontsize=10)
+
+        lines_stack = [ax_stack.plot([], [], lw=0.8)[0] for _ in range(n_ch)]
+        line_mav, = ax_mav.plot([], [], lw=1.2, color="tab:blue", label="MAV")
+        # Baseline reference lines (hidden until set_baseline has been run)
+        base_line = ax_mav.axhline(0, color="green", ls="-", lw=1, visible=False, label="baseline")
+        thr_line = ax_mav.axhline(0, color="red", ls="--", lw=1, visible=False, label="baseline + 3σ")
+        ax_mav.legend(loc="upper left", fontsize=8)
+
+        canvas = FigureCanvasTkAgg(fig, master=win)
+        canvas.get_tk_widget().pack(fill="both", expand=True)
+
+        stride = max(1, num_samples // max_points)
+        state = {"job": None, "peak": 1e-9, "mav_top": 1e-9}
+
+        def tick():
+            try:
+                data, count = self.get_data(N=num_samples, filter=False)
+                rows = data['emg']
+                n = min(num_samples, int(np.asarray(count['emg']).item()), rows.shape[0])
+
+                # Same window length as the baseline, so values are comparable
+                w = self.baseline_window_size or max(1, num_samples // 25)
+
+                if n >= max(2, w):
+                    y = rows[:n][::-1].astype(float)      # newest-first -> left to right
+                    y = np.nan_to_num(y, nan=0.0, posinf=0.0, neginf=0.0)
+                    y = y - y.mean(axis=0)                # remove DC offset per channel
+                    state["peak"] = max(state["peak"], np.abs(y).max())
+                    step = 2 * state["peak"]
+                    x = np.arange(num_samples - n, num_samples)[::stride]
+
+                    ys = y[::stride]
+                    for j in range(n_ch):
+                        lines_stack[j].set_data(x, ys[:, j] + j * step)
+                    ax_stack.set_ylim(-step, n_ch * step)
+
+                    # MAV over samples AND channels, moving window of length w
+                    inst = np.abs(y).mean(axis=1)
+                    mav = np.convolve(inst, np.ones(w) / w, mode="valid")
+                    x_mav = np.arange(num_samples - n + w - 1, num_samples)
+                    line_mav.set_data(x_mav[::stride], mav[::stride])
+
+                    top = max(state["mav_top"], mav.max())
+                    if self.baseline_mav is not None:
+                        thr = self.baseline_mav + 3 * self.baseline_std
+                        base_line.set_ydata([self.baseline_mav] * 2)
+                        thr_line.set_ydata([thr] * 2)
+                        base_line.set_visible(True)
+                        thr_line.set_visible(True)
+                        top = max(top, thr)
+
+                        above = mav[-1] > thr
+                        status.set_text("ABOVE BASELINE" if above else "AT BASELINE")
+                        status.get_bbox_patch().set_facecolor("tab:red" if above else "tab:green")
+                        detail.set_text(f"MAV {mav[-1]:.3g}   |   threshold {thr:.3g}")                        
+                    state["mav_top"] = top
+                    ax_mav.set_ylim(0, 1.2 * top)
+
+                    canvas.draw_idle()
+            except Exception as e:
+                print("monitor_data tick error:", e)
+            state["job"] = win.after(interval_ms, tick)
+
+        def on_close():
+            if state["job"] is not None:
+                win.after_cancel(state["job"])
+            win.destroy()
+
+        win.protocol("WM_DELETE_WINDOW", on_close)
+        tick()
+        return win
 
     def visualize(self, num_samples=500, block=True):
         """Visualize the incoming raw EMG in a plot (all channels together).

@@ -9,6 +9,51 @@ from multiprocessing import Process
 import matplotlib.pyplot as plt
 from matplotlib import pyplot
 import numpy as np
+import time
+
+class data_QA_continuous():
+
+    def __init__(self, odh):
+        self.odh = odh
+        self.baseline_mav = None    # mean of windowed MAV, all channels combined
+        self.baseline_std = None    # std of windowed MAV, all channels combined
+
+    def set_baseline(self):
+        self.odh.reset()
+        print(f"Wait 5 seconds.")
+        time.sleep(5)
+
+        data, count = self.odh.get_data(N=0, filter=False)
+        emg = np.asarray(data['emg'])      # assumed shape: (samples, channels)
+
+        # Keep only valid samples (drop unfilled zero rows)
+        n_valid = int(np.asarray(count['emg']).item())
+        emg = emg[:n_valid]
+
+        # Remove DC offset (per channel)
+        emg = emg - emg.mean(axis=0)
+
+        # Split into non-overlapping windows
+        n_windows = 25
+        window_size = emg.shape[0] // n_windows
+        if n_windows < 2:
+            raise ValueError("Not enough baseline data to compute a standard deviation.")
+        windows = emg[:n_windows * window_size].reshape(n_windows, window_size, -1)
+
+        # One MAV per window, averaged over samples AND channels -> shape (n_windows,)
+        mav = np.mean(np.abs(windows), axis=(1, 2))
+
+        self.baseline_mav = mav.mean()
+        self.baseline_std = mav.std(ddof=1)
+
+    def monitor_data(self):
+        dfsd
+
+    def _monitor_data(self):
+        data, count = self.odh.get_data(N=0, filter=False)
+
+        print(data['emg'])
+        print(data['temperature'])
 
 def download_gestures(gesture_ids, folder, download_imgs=True, download_gifs=False, redownload=False):
     """

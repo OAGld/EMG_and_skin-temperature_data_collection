@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import os
 from CustomLibEMG.gui import GUI
 import multiprocessing
-from Auxiliary import plot_data_ext
+from Auxiliary import plot_data_ext, data_QA_continuous
 from libemg.data_handler import OfflineDataHandler, RegexFilter
 from libemg.feature_extractor import FeatureExtractor
 
@@ -35,6 +35,8 @@ class Menu:
         self.temperature_file = f"{self.data_folder}temperature.csv"
         os.makedirs(self.data_folder, exist_ok=True)
 
+        self.qa = None
+
         self.recording_start = None
         self.recording_end = None
 
@@ -43,6 +45,14 @@ class Menu:
         self.info_filepath = None
 
         self.create_gui()
+        data_QA_continuous(self.odh)
+
+    def set_QA_baseline(self):
+        # Initiate data QA class
+        self.odh.set_baseline()
+
+    def monitor_data(self):
+        m_process = self.odh.monitor_data()
 
     def analyze_data(self):
         # Load every sample: column 0 = timestamp, columns 1-8 = EMG channels
@@ -94,7 +104,7 @@ class Menu:
         self.sgt_process = process
 
     def start_visualize(self):
-        self.odh.visualize()
+        self.odh.visualize(block=False)
 
     # Update the color text of the status indicators
     def update_status_colours(self):
@@ -545,10 +555,18 @@ class Menu:
 
         tk.Button(
             control_frame,
-            text="Analyze data",
+            text="Calibrate QA",
             width=20,
             height=2,
-            command=self.analyze_data
+            command=self.set_QA_baseline
+        ).pack(pady=8)
+
+        tk.Button(
+            control_frame,
+            text="Monitor data",
+            width=20,
+            height=2,
+            command=self.monitor_data
         ).pack(pady=8)
 
         tk.Button(

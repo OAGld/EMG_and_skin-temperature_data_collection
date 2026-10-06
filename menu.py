@@ -48,6 +48,7 @@ class Menu:
         self.media_folder = media_folder
         self.sgt_args = sgt_args
         self.filtering = streamer_args["filtering"]
+        self.emg_fs = streamer_args["emg_fs"]
 
         self.emg_file = f"{self.data_folder}emg.csv"
         self.events_file = f"{self.data_folder}events.json"
@@ -83,7 +84,7 @@ class Menu:
         threading.Thread(target=worker, daemon=True).start()
 
     def monitor_data(self):
-        m_process = self.odh.monitor_data()
+        m_process = self.odh.monitor_data(emg_fs=self.emg_fs)
 
     def poll_console(self):
         """Move queued text into the Text widget (runs on the Tk thread)."""
@@ -102,41 +103,6 @@ class Menu:
         self.console.configure(state="normal")
         self.console.delete("1.0", tk.END)
         self.console.configure(state="disabled")
-
-    def analyze_data(self):
-        # Load every sample: column 0 = timestamp, columns 1-8 = EMG channels
-        emg = pd.read_csv(self.emg_file, sep=r"\s+", header=None)
-
-        if len(emg) < 2:
-            print("Not enough data to analyze. Please record more data.")
-            return
-
-        t = emg.iloc[:, 0].to_numpy(dtype=float)
-
-        # Repeated timestamps mean samples were stamped per batch, so spread
-        # the samples in each batch evenly across that batch's time span
-        unique_t, start_idx, counts = np.unique(t, return_index=True, return_counts=True)
-        if len(unique_t) > 1:
-            block_dt = np.diff(unique_t) / counts[:-1]            # seconds per sample in each block
-            block_dt = np.append(block_dt, np.median(block_dt))   # last block: reuse typical spacing
-            block_id = np.repeat(np.arange(len(unique_t)), counts)
-            pos_in_block = np.arange(len(t)) - start_idx[block_id]
-            t = t + pos_in_block * block_dt[block_id]
-
-        emg_time = pd.to_datetime(t, unit="s")
-
-        fig, ax = plt.subplots(figsize=(12, 5))
-        for ch in range(1, 9):
-            ax.plot(emg_time, emg.iloc[:, ch], label=f"Channel {ch}", linewidth=0.5)
-
-        ax.set_xlabel("Time")
-        ax.set_ylabel("EMG Amplitude")
-        ax.set_title("EMG Signal (All Samples)")
-        ax.legend(loc="upper right", ncol=2, fontsize="small")
-        ax.grid(True, alpha=0.3)
-        fig.autofmt_xdate()
-        fig.tight_layout()
-        plt.show()
 
     def analyze_device(self):
         self.odh.analyze_hardware()
@@ -571,14 +537,6 @@ class Menu:
 
         tk.Button(
             control_frame,
-            text="Analyze device",
-            width=20,
-            height=2,
-            command=self.analyze_device
-        ).pack(pady=8)
-
-        tk.Button(
-            control_frame,
             text="Start recording",
             width=20,
             height=2,
@@ -591,14 +549,6 @@ class Menu:
             width=20,
             height=2,
             command=self.start_visualize
-        ).pack(pady=8)
-
-        tk.Button(
-            control_frame,
-            text="Calibrate QA",
-            width=20,
-            height=2,
-            command=self.set_QA_baseline
         ).pack(pady=8)
 
         tk.Button(
@@ -639,6 +589,22 @@ class Menu:
             width=20,
             height=2,
             command=self.reset
+        ).pack(pady=8)
+
+        tk.Button(
+            control_frame,
+            text="Set baseline",
+            width=20,
+            height=2,
+            command=self.set_QA_baseline
+        ).pack(pady=8)
+
+        tk.Button(
+            control_frame,
+            text="Analyze device",
+            width=20,
+            height=2,
+            command=self.analyze_device
         ).pack(pady=8)
 
         tk.Button(

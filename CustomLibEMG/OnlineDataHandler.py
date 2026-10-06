@@ -212,7 +212,8 @@ class OnlineDataHandler(DataHandler):
 
         print("calibration complete")
 
-    def monitor_data(self, parent=None, num_samples=1000, interval_ms=500, max_points=5000, amp_limit=5e-3):
+    def monitor_data(self, parent=None, num_samples=1000, interval_ms=500, max_points=5000, amp_limit=5e-3,
+                     emg_fs=None, loss_window_s=5, loss_limit=0.01):
         """Open a live window for checking EMG signal quality during recording.
 
         Shows three panels, refreshed every interval_ms:
@@ -220,13 +221,18 @@ class OnlineDataHandler(DataHandler):
           with the DC offset removed.
         - The moving-window MAV across all channels, using the same window
           length as set_baseline so the values are comparable.
-        - Two status indicators:
+        - Three status indicators:
           - Baseline: green when the MAV is at rest level, red when it is above
             baseline + 3 std. Only active once set_baseline has been run.
           - Amplitude: red when the peak amplitude (DC offset removed) of any
             channel exceeds amp_limit, i.e. the signal is outside the expected
             sEMG range of 10 mV peak-to-peak. The affected channels are named
             in the indicator and printed to the console when the check fails.
+          - Packets: compares how many EMG samples arrived over the last
+            loss_window_s seconds (growth of emg_count) with emg_fs. Red when
+            more than loss_limit of the expected samples are missing. The
+            streamer drops lost samples, so this catches dropped packets
+            without changing how data is stored. Skipped if emg_fs is None.
         The MAV y-axis auto-scales to the largest value seen since the window opened.
         """
 
@@ -237,7 +243,7 @@ class OnlineDataHandler(DataHandler):
         n_ch = sample['emg'].shape[1]
 
         fig = Figure(figsize=(9, 7), tight_layout=True)
-        gs = fig.add_gridspec(3, 1, height_ratios=[4, 3, 1.5])
+        gs = fig.add_gridspec(3, 1, height_ratios=[4, 3, 2])
         ax_stack = fig.add_subplot(gs[0])
         ax_mav = fig.add_subplot(gs[1], sharex=ax_stack)
         ax_ind = fig.add_subplot(gs[2])
@@ -251,15 +257,20 @@ class OnlineDataHandler(DataHandler):
         ax_ind.set_ylim(0, 1)
         ax_ind.axis("off")
 
-        status = ax_ind.text(0.02, 0.75, "NO BASELINE", ha="left", va="center",
+        status = ax_ind.text(0.02, 0.83, "NO BASELINE", ha="left", va="center",
                      fontsize=12, fontweight="bold", color="white",
                      bbox=dict(boxstyle="round,pad=0.5", fc="grey", ec="none"))
-        detail = ax_ind.text(0.30, 0.75, "", ha="left", va="center", fontsize=10)
+        detail = ax_ind.text(0.30, 0.83, "", ha="left", va="center", fontsize=10)
 
-        amp_status = ax_ind.text(0.02, 0.25, "AMPLITUDE OK", ha="left", va="center",
+        amp_status = ax_ind.text(0.02, 0.5, "AMPLITUDE OK", ha="left", va="center",
                      fontsize=12, fontweight="bold", color="white",
                      bbox=dict(boxstyle="round,pad=0.5", fc="grey", ec="none"))
-        amp_detail = ax_ind.text(0.30, 0.25, "", ha="left", va="center", fontsize=10)
+        amp_detail = ax_ind.text(0.30, 0.5, "", ha="left", va="center", fontsize=10)
+
+        loss_status = ax_ind.text(0.02, 0.17, "NO RATE SET" if emg_fs is None else "MEASURING...",
+                     ha="left", va="center", fontsize=12, fontweight="bold", color="white",
+                     bbox=dict(boxstyle="round,pad=0.5", fc="grey", ec="none"))
+        loss_detail = ax_ind.text(0.30, 0.17, "", ha="left", va="center", fontsize=10)
 
         lines_stack = [ax_stack.plot([], [], lw=0.8)[0] for _ in range(n_ch)]
         line_mav, = ax_mav.plot([], [], lw=1.2, color="tab:blue", label="MAV")
@@ -272,13 +283,45 @@ class OnlineDataHandler(DataHandler):
         canvas.get_tk_widget().pack(fill="both", expand=True)
 
         stride = max(1, num_samples // max_points)
-        state = {"job": None, "peak": 1e-9, "mav_top": 1e-9, "amp_bad": []}
+        state = {"job": None, "peak": 1e-9, "mav_top": 1e-9, "amp_bad": [],
+                 "count_hist": [], "dropping": False}
 
         def tick():
             try:
                 data, count = self.get_data(N=num_samples, filter=False)
                 rows = data['emg']
-                n = min(num_samples, int(np.asarray(count['emg']).item()), rows.shape[0])
+                emg_count = int(np.asarray(count['emg']).item())
+                n = min(num_samples, emg_count, rows.shape[0])
+
+                # Dropped-sample check: received samples (growth of emg_count) vs emg_fs
+                if emg_fs is not None:
+                    now = time.time()
+                    hist = state["count_hist"]
+                    if hist and emg_count < hist[-1][1]:
+                        hist.clear()                      # buffer was reset, start over
+                    hist.append((now, emg_count))
+                    # Keep the newest entry that is at least loss_window_s old as the reference
+                    while len(hist) > 1 and hist[1][0] <= now - loss_window_s:
+                        hist.pop(0)
+                    dt = now - hist[0][0]
+                    if dt >= loss_window_s:
+                        received = emg_count - hist[0][1]
+                        expected = emg_fs * dt
+                        missing = max(0.0, (expected - received) / expected)
+                        dropping = missing > loss_limit
+                        loss_status.set_text("DROPPING SAMPLES" if dropping else "PACKETS OK")
+                        loss_status.get_bbox_patch().set_facecolor("tab:red" if dropping else "tab:green")
+                        loss_detail.set_text(f"rate {received / dt:.0f} / {emg_fs:g} Hz   |   "
+                                             f"missing {100 * missing:.1f}% (last {dt:.0f} s)")
+                        # Print only when it starts dropping, to avoid spamming the console
+                        if dropping and not state["dropping"]:
+                            print(f"Dropping EMG samples: {received / dt:.0f} of {emg_fs:g} Hz received "
+                                  f"({100 * missing:.1f}% missing over the last {dt:.0f} s)")
+                        state["dropping"] = dropping
+                    else:
+                        loss_status.set_text("MEASURING...")
+                        loss_status.get_bbox_patch().set_facecolor("grey")
+                        loss_detail.set_text("")
 
                 # Same window length as the baseline, so values are comparable
                 w = self.baseline_window_size or max(1, num_samples // 25)
@@ -336,7 +379,7 @@ class OnlineDataHandler(DataHandler):
                     state["mav_top"] = top
                     ax_mav.set_ylim(0, 1.2 * top)
 
-                    canvas.draw_idle()
+                canvas.draw_idle()
             except Exception as e:
                 print("monitor_data tick error:", e)
             state["job"] = win.after(interval_ms, tick)

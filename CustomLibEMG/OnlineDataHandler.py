@@ -171,6 +171,14 @@ class OnlineDataHandler(DataHandler):
         print("Analysis sucessfully complete. ODH process has stopped.")
 
     def set_baseline(self):
+        """Calibrate the resting EMG level used by the data quality check.
+
+        Clears the buffer, records 5 seconds of EMG while the subject is at rest,
+        and splits it into 25 windows. The mean absolute value (MAV) of each window,
+        averaged over all channels, gives the baseline mean and standard deviation.
+        monitor_data compares the live MAV against baseline + 3 std to tell whether
+        a muscle contraction is visible in the signal.
+        """
         self.reset()
         print(f"Wait 5 seconds.")
 
@@ -204,8 +212,23 @@ class OnlineDataHandler(DataHandler):
 
         print("calibration complete")
 
-    def monitor_data(self, parent=None, num_samples=1000, interval_ms=500, max_points=5000):
-        """Live view of the EMG stream: stacked channels + windowed MAV across all channels."""
+    def monitor_data(self, parent=None, num_samples=1000, interval_ms=500, max_points=5000, amp_limit=5e-3):
+        """Open a live window for checking EMG signal quality during recording.
+
+        Shows three panels, refreshed every interval_ms:
+        - The most recent num_samples of raw EMG, one stacked trace per channel
+          with the DC offset removed.
+        - The moving-window MAV across all channels, using the same window
+          length as set_baseline so the values are comparable.
+        - Two status indicators:
+          - Baseline: green when the MAV is at rest level, red when it is above
+            baseline + 3 std. Only active once set_baseline has been run.
+          - Amplitude: red when the peak amplitude (DC offset removed) of any
+            channel exceeds amp_limit, i.e. the signal is outside the expected
+            sEMG range of 10 mV peak-to-peak. The affected channels are named
+            in the indicator and printed to the console when the check fails.
+        The MAV y-axis auto-scales to the largest value seen since the window opened.
+        """
 
         win = tk.Toplevel(parent)
         win.title("EMG Monitor")
@@ -214,7 +237,7 @@ class OnlineDataHandler(DataHandler):
         n_ch = sample['emg'].shape[1]
 
         fig = Figure(figsize=(9, 7), tight_layout=True)
-        gs = fig.add_gridspec(3, 1, height_ratios=[4, 3, 1])
+        gs = fig.add_gridspec(3, 1, height_ratios=[4, 3, 1.5])
         ax_stack = fig.add_subplot(gs[0])
         ax_mav = fig.add_subplot(gs[1], sharex=ax_stack)
         ax_ind = fig.add_subplot(gs[2])
@@ -228,10 +251,15 @@ class OnlineDataHandler(DataHandler):
         ax_ind.set_ylim(0, 1)
         ax_ind.axis("off")
 
-        status = ax_ind.text(0.02, 0.5, "NO BASELINE", ha="left", va="center",
+        status = ax_ind.text(0.02, 0.75, "NO BASELINE", ha="left", va="center",
                      fontsize=12, fontweight="bold", color="white",
                      bbox=dict(boxstyle="round,pad=0.5", fc="grey", ec="none"))
-        detail = ax_ind.text(0.30, 0.5, "", ha="left", va="center", fontsize=10)
+        detail = ax_ind.text(0.30, 0.75, "", ha="left", va="center", fontsize=10)
+
+        amp_status = ax_ind.text(0.02, 0.25, "AMPLITUDE OK", ha="left", va="center",
+                     fontsize=12, fontweight="bold", color="white",
+                     bbox=dict(boxstyle="round,pad=0.5", fc="grey", ec="none"))
+        amp_detail = ax_ind.text(0.30, 0.25, "", ha="left", va="center", fontsize=10)
 
         lines_stack = [ax_stack.plot([], [], lw=0.8)[0] for _ in range(n_ch)]
         line_mav, = ax_mav.plot([], [], lw=1.2, color="tab:blue", label="MAV")
@@ -244,7 +272,7 @@ class OnlineDataHandler(DataHandler):
         canvas.get_tk_widget().pack(fill="both", expand=True)
 
         stride = max(1, num_samples // max_points)
-        state = {"job": None, "peak": 1e-9, "mav_top": 1e-9}
+        state = {"job": None, "peak": 1e-9, "mav_top": 1e-9, "amp_bad": []}
 
         def tick():
             try:
@@ -267,6 +295,24 @@ class OnlineDataHandler(DataHandler):
                     for j in range(n_ch):
                         lines_stack[j].set_data(x, ys[:, j] + j * step)
                     ax_stack.set_ylim(-step, n_ch * step)
+
+                    # Range check: peak amplitude per channel against the sEMG limit
+                    ch_peak = np.abs(y).max(axis=0)
+                    bad = [j + 1 for j in range(n_ch) if ch_peak[j] > amp_limit]
+                    if bad:
+                        amp_status.set_text("OUT OF RANGE")
+                        amp_status.get_bbox_patch().set_facecolor("tab:red")
+                        amp_detail.set_text(f"ch {', '.join(map(str, bad))}   |   "
+                                            f"max peak {ch_peak.max() * 1e3:.2f} mV > {amp_limit * 1e3:.2f} mV")
+                    else:
+                        amp_status.set_text("AMPLITUDE OK")
+                        amp_status.get_bbox_patch().set_facecolor("tab:green")
+                        amp_detail.set_text(f"max peak {ch_peak.max() * 1e3:.2f} mV")
+                    # Print only when the set of out-of-range channels changes, to avoid spamming the console
+                    if bad and bad != state["amp_bad"]:
+                        peaks = ", ".join(f"ch {c}: {ch_peak[c - 1] * 1e3:.2f} mV" for c in bad)
+                        print(f"Amplitude above {amp_limit * 1e3:.2f} mV on {peaks}")
+                    state["amp_bad"] = bad
 
                     # MAV over samples AND channels, moving window of length w
                     inst = np.abs(y).mean(axis=1)

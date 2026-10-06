@@ -16,7 +16,7 @@ import os
 # - Add the ability to scroll (OK)
 # - Add a few data checks that run in real time
 #   - Check if signal is above 3x std when performing a gesture (OK)
-#   - Check if the signal is outside the range of what you would expect from an EMG signal
+#   - Check if the signal is outside the range of what you would expect from an EMG signal (OK)
 #   - Check if there are any dropped packets and add a comment if it is
 #   - More checks?
 # - Find the reason why visualize is so resource intensive (OK)

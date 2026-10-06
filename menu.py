@@ -109,6 +109,8 @@ class Menu:
 
     def start_sgt(self):
 
+        self.reset()
+
         process = multiprocessing.Process(
             target=run_sgt,
             args=(self.events_file, self.sgt_args)
@@ -153,6 +155,7 @@ class Menu:
         self.window.after(1000, self.check_connection)
 
     def reset(self):
+        self.create_event("Data reset")
         self.odh.reset()
 
     # ============================================================

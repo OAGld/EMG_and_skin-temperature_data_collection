@@ -5,7 +5,7 @@ from collections.abc import Callable
 
 import sifi_bridge_py as sbp
 
-from libemg.shared_memory_manager import SharedMemoryManager
+from CustomLibEMG.Streamer.shared_memory_manager import SharedMemoryManager
 
 
 # Sampling rates (Hz) accepted by the SiFi hardware for each modality.

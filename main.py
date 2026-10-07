@@ -2,7 +2,6 @@ from menu import Menu
 import Auxiliary
 from CustomLibEMG.streamers import sifi_bioarmband_streamer
 from CustomLibEMG.OnlineDataHandler import OnlineDataHandler
-import time
 import tomllib
 import shutil
 import os

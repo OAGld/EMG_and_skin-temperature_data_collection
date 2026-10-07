@@ -4,10 +4,7 @@ import json
 import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.widgets import RadioButtons
-from matplotlib.animation import FuncAnimation
-from multiprocessing import Process
 import matplotlib.pyplot as plt
-from matplotlib import pyplot
 import numpy as np
 import time
 import tkinter as tk

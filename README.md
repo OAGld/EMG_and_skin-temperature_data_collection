@@ -1,6 +1,6 @@
 # EMG and skin temperature data collection
 
-A data-collection tool for a master's thesis. It streams biosignals from a [SiFi Labs](https://sifilabs.com/) BioArmband over Bluetooth Low Energy, logs them to CSV, and provides a control panel for recording, event marking, session notes, live visualization, signal-quality checks and screen-guided gesture training.
+A data-collection tool used for data collection during the "Robust Gesture Recognition Across Varying Temperatures Using Multimodal Biosignals" project at UIO. It streams biosignals from a [SiFi Labs](https://sifilabs.com/) BioArmband over Bluetooth Low Energy, logs them to CSV, and provides a control panel for recording, event marking, session notes, live visualization, signal-quality checks and screen-guided gesture training.
 
 Recorded signals: EMG (8 channels), IMU, ECG, EDA, PPG and skin temperature. Each one can be switched on or off in `config.toml`.
 

@@ -1,4 +1,5 @@
 from multiprocessing import Process, Event
+import queue
 import time
 import numpy as np
 from collections.abc import Callable
@@ -64,6 +65,53 @@ IMU_RATE_KNOWN_TO_SILENCE_THE_SENSOR = 200
 # Cap on stderr lines read per drain, so a bridge flooding its stderr cannot
 # starve the recovery it was supposed to explain.
 MAX_STDERR_LINES_PER_DRAIN = 200
+
+
+class _DiscardQueue:
+    """Stand-in for a queue.Queue that keeps nothing.
+
+    Accepts puts and always reads as empty, so sifi_bridge_py's
+    clear_data_buffer() and get_<sensor>() calls still work against it.
+    """
+
+    def put(self, item, block=True, timeout=None):
+        pass
+
+    def put_nowait(self, item):
+        pass
+
+    def get(self, block=True, timeout=None):
+        raise queue.Empty
+
+    def get_nowait(self):
+        raise queue.Empty
+
+    def qsize(self):
+        return 0
+
+    def empty(self):
+        return True
+
+
+def _disable_typed_queues(sb):
+    """Stop a SifiBridge from keeping a second copy of every packet.
+
+    sifi_bridge_py puts each packet into the generic queue read by get_data()
+    and, again, into an unbounded per-sensor queue meant for get_emg() etc.
+    This streamer only uses get_data(), so nothing ever drains the per-sensor
+    queues and they grow for as long as the stream runs -- the slow memory
+    climb of the streamer process. Swapping them for discarding queues on our
+    own instance fixes that without modifying the installed library.
+    """
+    typed_queues = getattr(sb, "_typed_queues", None)
+    if not isinstance(typed_queues, dict):
+        print(
+            "LibEMG -> SiFiBridgeStreamer (sifi_bridge_py has no _typed_queues; "
+            "could not disable the per-sensor queues, memory may grow over time)."
+        )
+        return
+    for sensor in typed_queues:
+        typed_queues[sensor] = _DiscardQueue()
 
 
 def _validate_setting(name: str, value, allowed):
@@ -479,6 +527,7 @@ class SiFiBridgeStreamer(Process):
             print(f"LibEMG -> SiFiBridgeStreamer (error closing old bridge: {e}).")
         self.sb = sbp.SifiBridge()
         self.sb._DEFAULT_REQUEST_TIMEOUT = 10.0
+        _disable_typed_queues(self.sb)
 
     def _wait_for_device(self):
         """Block until a SiFi device is advertising, or shutdown is requested.
@@ -759,6 +808,7 @@ class SiFiBridgeStreamer(Process):
         # process is started beyond this point!
         self.sb = sbp.SifiBridge()
         self.sb._DEFAULT_REQUEST_TIMEOUT = 10.0
+        _disable_typed_queues(self.sb)
 
         self.connect()
 

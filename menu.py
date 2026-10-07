@@ -13,6 +13,7 @@ import threading
 import sys
 import queue
 
+# Class to redirect stdout and stderr to a queue for GUI display
 class TextRedirector:
     """File-like object that sends written text to a queue.
     The GUI drains the queue on its own timer, so it's safe even if
@@ -55,7 +56,7 @@ class Menu:
         self.temperature_file = f"{self.data_folder}temperature.csv"
         os.makedirs(self.data_folder, exist_ok=True)
 
-        self.qa = None
+        self.qa = data_QA_continuous(self.odh, event_callback=self.create_event)
 
         self.recording_start = None
         self.recording_end = None
@@ -65,7 +66,6 @@ class Menu:
         self.info_filepath = None
 
         self.create_gui()
-        data_QA_continuous(self.odh)
 
     def set_QA_baseline(self):
         # Run in a background thread so the countdown doesn't block the GUI
@@ -75,7 +75,7 @@ class Menu:
 
         def worker():
             try:
-                self.odh.set_baseline()
+                self.qa.set_baseline()
             except Exception as e:
                 print(f"Calibration failed: {e}")
             finally:
@@ -84,7 +84,7 @@ class Menu:
         threading.Thread(target=worker, daemon=True).start()
 
     def monitor_data(self):
-        m_process = self.odh.monitor_data(emg_fs=self.emg_fs)
+        m_process = self.qa.monitor_data(emg_fs=self.emg_fs)
 
     def poll_console(self):
         """Move queued text into the Text widget (runs on the Tk thread)."""

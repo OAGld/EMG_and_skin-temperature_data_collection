@@ -54,7 +54,7 @@ class Menu:
         self.data_folder = data_folder   # created by main.py
 
         # ---------- Status indicators ----------
-        self.stream_timeout_s = 1       # seconds without new EMG samples before the band counts as disconnected
+        self.stream_timeout_s = 2       # seconds without new EMG samples before the band counts as disconnected
         self.last_emg_count = None      # emg_count at the previous connection check
         self.last_count_change = 0.0    # time.time() when emg_count last increased
 
@@ -427,10 +427,12 @@ class Menu:
         # Fixed event buttons (the button text is also the event name)
         event_names = [
             "Stop gesture",
-            "Enter sauna",
-            "Exit sauna",
-            "Enter fridge",
-            "Exit fridge",
+            "Enter warm environment",
+            "Exit warm environment",
+            "Enter cold environment",
+            "Exit cold environment",
+            "Enter room temperature environment",
+            "Exit room temperature environment",
             "Move location",
             "Custom event",
         ]

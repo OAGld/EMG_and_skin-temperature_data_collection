@@ -28,7 +28,7 @@ The program is multi-process, and the processes communicate through **named shar
 4. **Data QA** (`Auxiliary.py::data_QA_continuous`): wraps the ODH. `set_baseline` is the QA calibration (windowed MAV mean/std at rest). `monitor_data` opens the live quality window (baseline, amplitude and dropped-packet checks). The Menu creates one instance as `self.qa`, before `create_gui()`, because `create_gui()` blocks in the Tk mainloop.
 5. **SGT**: `Menu.start_sgt` launches `CustomLibEMG/gui.py::GUI` (DearPyGui) in its own process, which runs `SGT/_data_collection_panel.py`. SGT **does not record data**. It only appends gesture start/stop events (with rep number) to the shared `events.json`. `_data_collection_panel_odh_enabled.py` is an alternative variant that is currently unused.
 
-Events (`events.json`) are JSON Lines (`{"timestamp": unix_time, "event": name}`), and both the Menu and SGT processes append to the file. Data is aligned to events by timestamp during plotting (`Auxiliary.plot_data_ext`, `Menu.analyze_data`, which spreads batch-stamped samples evenly within each batch).
+Events (`events.json`) are JSON Lines (`{"timestamp": unix_time, "event": name}`), and both the Menu and SGT processes append to the file. Data is aligned to events by timestamp during plotting (`Auxiliary.plot_data_ext`, which plots samples at their batch timestamps and drops skin-temperature readings of 0).
 
 `CustomLibEMG/` holds forked and patched copies of `libemg` components. Some modules still import upstream `libemg` (e.g. `SharedMemoryManager`, `FeatureExtractor` in the ODH, and the `libemg` streamers/ODH in `gui.py`). Check which one a change should target.
 

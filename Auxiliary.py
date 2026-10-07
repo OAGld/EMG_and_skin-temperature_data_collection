@@ -350,56 +350,30 @@ def _read_data_file(file_path):
     return data
 
 
-def plot_data_ext(self):
+def plot_data_ext(menu):
+    """Plot the recorded EMG (one channel at a time) and skin temperature,
+    with every event drawn as a dashed line on both plots.
 
-    # ---------------------------------------------------------
-    # Read EMG data
-    # ---------------------------------------------------------
+    menu is the Menu object; its emg_file, temperature_file and events_file
+    are read. Missing or empty files are shown as "No ... data" instead of
+    raising. Temperature samples of exactly 0 are left out, since the sensor
+    reports 0 when it has no reading.
+    """
 
-    emg = _read_data_file(self.emg_file)
+    # ==================== Shared: read data and create the figure ====================
 
-    if emg is not None:
-        emg_time = pd.to_datetime(
-            emg.iloc[:, 0],
-            unit="s"
-        )
+    emg = _read_data_file(menu.emg_file)
+    temperature = _read_data_file(menu.temperature_file)
 
-    # ---------------------------------------------------------
-    # Read temperature data
-    # ---------------------------------------------------------
-
-    temperature = _read_data_file(self.temperature_file)
-
+    # Drop temperature samples of 0 (no reading from the sensor)
     if temperature is not None:
-        temperature_time = pd.to_datetime(
-            temperature.iloc[:, 0],
-            unit="s"
-        )
+        temperature = temperature[temperature.iloc[:, 1] != 0]
+        if temperature.empty:
+            temperature = None
 
     if emg is None and temperature is None:
         print("No data to plot. Record some data first.")
         return
-
-    # ---------------------------------------------------------
-    # Read events
-    # ---------------------------------------------------------
-
-    events_from_file = []
-
-    if os.path.exists(self.events_file):
-
-        with open(self.events_file, "r") as f:
-
-            for line in f:
-
-                line = line.strip()
-
-                if line:
-                    events_from_file.append(json.loads(line))
-
-    # ---------------------------------------------------------
-    # Create figure with two plots
-    # ---------------------------------------------------------
 
     fig, (ax_emg, ax_temp) = plt.subplots(
         2,
@@ -408,66 +382,70 @@ def plot_data_ext(self):
         figsize=(12, 8)
     )
 
-    # Make room for channel selector
+    # Make room for the channel selector
     plt.subplots_adjust(
         left=0.1,
         right=0.8,
         hspace=0.15
     )
 
-    # ---------------------------------------------------------
-    # EMG plot
-    # ---------------------------------------------------------
+    # ==================== EMG plot with channel selector ====================
 
-    current_channel = 1
+    ax_emg.set_ylabel("EMG")
 
     if emg is not None:
-        line, = ax_emg.plot(
-            emg_time,
-            emg.iloc[:, current_channel]
+        # Column 0 is the timestamp, so column n is channel n
+        emg_time = pd.to_datetime(emg.iloc[:, 0], unit="s")
+        n_channels = emg.shape[1] - 1
+
+        current_channel = 1
+        line, = ax_emg.plot(emg_time, emg.iloc[:, current_channel])
+        ax_emg.set_title(f"EMG Channel {current_channel} with Events")
+
+        selector_ax = plt.axes([0.82, 0.25, 0.15, 0.5])
+        radio = RadioButtons(
+            selector_ax,
+            [f"Channel {channel}" for channel in range(1, n_channels + 1)]
         )
-        ax_emg.set_title(
-            f"EMG Channel {current_channel} with Events"
-        )
+
+        def change_channel(label):
+            channel = int(label.split()[-1])
+            line.set_ydata(emg.iloc[:, channel])
+            ax_emg.set_title(f"EMG Channel {channel} with Events")
+            ax_emg.relim()
+            ax_emg.autoscale_view()
+            fig.canvas.draw_idle()
+
+        radio.on_clicked(change_channel)
+        # Matplotlib only holds widgets weakly; keep the selector alive as long as the figure
+        fig.channel_selector = radio  # type: ignore[attr-defined]
     else:
         ax_emg.text(0.5, 0.5, "No EMG data", ha="center", va="center", transform=ax_emg.transAxes)
         ax_emg.set_title("EMG")
 
-    ax_emg.set_ylabel("EMG")
-
-    # ---------------------------------------------------------
-    # Temperature plot
-    # ---------------------------------------------------------
-
-    if temperature is not None:
-        temperature_line, = ax_temp.plot(
-            temperature_time,
-            temperature.iloc[:, 1]
-        )
-    else:
-        ax_temp.text(0.5, 0.5, "No temperature data", ha="center", va="center", transform=ax_temp.transAxes)
+    # ==================== Temperature plot ====================
 
     ax_temp.set_xlabel("Time")
     ax_temp.set_ylabel("Temperature")
     ax_temp.set_title("Skin Temperature")
 
-    # ---------------------------------------------------------
-    # Events on both plots
-    # ---------------------------------------------------------
+    if temperature is not None:
+        temperature_time = pd.to_datetime(temperature.iloc[:, 0], unit="s")
+        ax_temp.plot(temperature_time, temperature.iloc[:, 1])
+    else:
+        ax_temp.text(0.5, 0.5, "No temperature data", ha="center", va="center", transform=ax_temp.transAxes)
 
-    for event in events_from_file:
+    # ==================== Events on both plots ====================
 
-        event_time = pd.to_datetime(
-            event["timestamp"],
-            unit="s"
-        )
+    events = []
+    if os.path.exists(menu.events_file):
+        with open(menu.events_file, "r") as f:
+            events = [json.loads(line) for line in f if line.strip()]
 
-        # EMG
-        ax_emg.axvline(
-            event_time,
-            linestyle="--"
-        )
+    for event in events:
+        event_time = pd.to_datetime(event["timestamp"], unit="s")
 
+        ax_emg.axvline(event_time, linestyle="--")
         ax_emg.text(
             event_time,
             ax_emg.get_ylim()[1],
@@ -476,68 +454,9 @@ def plot_data_ext(self):
             verticalalignment="top"
         )
 
-        # Temperature
-        ax_temp.axvline(
-            event_time,
-            linestyle="--"
-        )
+        ax_temp.axvline(event_time, linestyle="--")
 
-    # ---------------------------------------------------------
-    # Channel selector
-    # ---------------------------------------------------------
-
-    if emg is None:
-        fig.autofmt_xdate()
-        plt.show()
-        return
-
-    selector_ax = plt.axes(
-        [0.82, 0.25, 0.15, 0.5]
-    )
-
-    channels = [
-        "Channel 1",
-        "Channel 2",
-        "Channel 3",
-        "Channel 4",
-        "Channel 5",
-        "Channel 6",
-        "Channel 7",
-        "Channel 8"
-    ]
-
-    radio = RadioButtons(
-        selector_ax,
-        channels
-    )
-
-    # ---------------------------------------------------------
-    # Change EMG channel
-    # ---------------------------------------------------------
-
-    def change_channel(label):
-
-        channel = int(label.split()[-1])
-
-        line.set_ydata(
-            emg.iloc[:, channel]
-        )
-
-        ax_emg.set_title(
-            f"EMG Channel {channel} with Events"
-        )
-
-        ax_emg.relim()
-        ax_emg.autoscale_view()
-
-        fig.canvas.draw_idle()
-
-    radio.on_clicked(change_channel)
-
-    # ---------------------------------------------------------
-    # Formatting
-    # ---------------------------------------------------------
+    # ==================== Shared: show ====================
 
     fig.autofmt_xdate()
-
     plt.show()

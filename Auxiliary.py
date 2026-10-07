@@ -80,7 +80,9 @@ class data_QA_continuous():
           - Amplitude: red when the peak amplitude (DC offset removed) of any
             channel exceeds amp_limit, i.e. the signal is outside the expected
             sEMG range of 10 mV peak-to-peak. The affected channels are named
-            in the indicator and printed to the console when the check fails.
+            in the indicator and printed to the console when the check fails,
+            and an "Amplitude out of range (ch ...)" event is passed to
+            event_callback (if set).
           - Packets: compares how many EMG samples arrived over the last
             loss_window_s seconds (growth of emg_count) with emg_fs. Red when
             more than loss_limit of the expected samples are missing. The
@@ -232,10 +234,12 @@ class data_QA_continuous():
                         amp_status.set_text("AMPLITUDE OK")
                         amp_status.get_bbox_patch().set_facecolor("tab:green")
                         amp_detail.set_text(f"max peak {ch_peak.max() * 1e3:.2f} mV")
-                    # Print only when the set of out-of-range channels changes, to avoid spamming the console
+                    # Print and log an event only when the set of out-of-range channels changes, to avoid spamming
                     if bad and bad != state["amp_bad"]:
                         peaks = ", ".join(f"ch {c}: {ch_peak[c - 1] * 1e3:.2f} mV" for c in bad)
                         print(f"Amplitude above {amp_limit * 1e3:.2f} mV on {peaks}")
+                        if self.event_callback is not None:
+                            self.event_callback(f"Amplitude out of range (ch {', '.join(map(str, bad))})")
                     state["amp_bad"] = bad
 
                 # ---------- Packet check ----------

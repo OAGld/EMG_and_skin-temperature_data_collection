@@ -310,6 +310,11 @@ class Menu:
         sys.stdout, sys.stderr = self._orig_stdout, self._orig_stderr
         self.window.destroy()
 
+    def confirm_exit(self):
+        # Used by the window's close (X) button, so an accidental click doesn't end the session
+        if messagebox.askyesno("Exit", "Are you sure you want to close the program?"):
+            self.exit_program()
+
     # ============================================================
     # GUI
     # ============================================================
@@ -318,6 +323,7 @@ class Menu:
 
         self.window = tk.Tk()
         self.window.title("EMG Recording")
+        self.window.protocol("WM_DELETE_WINDOW", self.confirm_exit)
         self.window.geometry("950x950")
 
         self.recording_status = tk.StringVar(value="NOT RECORDING")

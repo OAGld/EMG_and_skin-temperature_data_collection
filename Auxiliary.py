@@ -88,8 +88,8 @@ class data_QA_continuous():
             without changing how data is stored. Skipped if emg_fs is None.
             Each time it starts dropping, a "Dropped packets" event is passed to
             event_callback (if set), so the dropout shows up in events.json.
-        The MAV y-axis auto-scales to the largest value seen since the window
-        opened, or since the "Reset MAV y-axis" button was last pressed.
+        The EMG and MAV y-axes auto-scale to the largest value seen since the
+        window opened, or since their "Reset ... y-axis" button was last pressed.
         """
 
         # ==================== Shared setup ====================
@@ -120,9 +120,13 @@ class data_QA_continuous():
         canvas = FigureCanvasTkAgg(fig, master=win)
         canvas.get_tk_widget().pack(fill="both", expand=True)
 
+        # Button bar under the plots; packed before the canvas so it stays visible when the window is shrunk
+        buttons = tk.Frame(win)
+        buttons.pack(side="bottom", pady=4, before=canvas.get_tk_widget())
+
         stride = max(1, num_samples // max_points)
         state = {"job": None, "peak": 1e-9}
-
+        
         # ==================== Baseline check (MAV above baseline + 3 std) ====================
 
         ax_mav = fig.add_subplot(gs[1], sharex=ax_stack)
@@ -141,13 +145,12 @@ class data_QA_continuous():
 
         state["mav_top"] = 1e-9
 
-        # Forget the largest MAV seen so far; the next tick rescales to the current data
-        def reset_mav_ylim():
+        # Forget the largest MAV and EMG amplitude seen so far; the next tick rescales to the current data
+        def reset_ylim():
             state["mav_top"] = 1e-9
+            state["peak"] = 1e-9
 
-        # Packed before the canvas so it stays visible when the window is shrunk
-        tk.Button(win, text="Reset MAV y-axis", command=reset_mav_ylim).pack(
-            side="bottom", pady=4, before=canvas.get_tk_widget())
+        tk.Button(buttons, text="Reset y-axes", command=reset_ylim).pack(side="left", padx=4)
 
         # ==================== Amplitude check (outside expected sEMG range) ====================
 
